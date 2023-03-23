@@ -1,0 +1,68 @@
+{
+  "cleaners": {
+  },
+   "molecules": [
+    {
+      "smiles": "",
+      "label": "",
+      "group": "core",
+      "blocks": [
+        {
+           "smiles": "[He]C1=CC2=C(C([Ne])=C1)C1(C3=C(C=C([Kr])C=C3[Ar])C3=C1C([Ar])=CC([Kr])=C3)C1=C([Ne])C=C([He])C=C1O2"
+        }
+      ]
+    },
+    {
+      "smiles": "",
+      "label": "",
+      "group": "rgroup_type_1",
+      "blocks": [
+        {
+          "smiles": "[He][H]"
+        },
+        {
+          "smiles": "[He]C"
+        }
+      ]
+    },
+    {
+      "smiles": "",
+      "label": "",
+      "group": "rgroup_type_2",
+      "blocks": [
+        {
+          "smiles": "[Ne][H]"
+        },
+        {
+          "smiles": "[Ne]C"
+        }
+      ]
+    },
+    {
+      "smiles": "",
+      "label": "",
+      "group": "rgroup_type_3",
+      "blocks": [
+        {
+          "smiles": "[Ar][H]"
+        },
+        {
+          "smiles": "FC(F)(F)[Ar]"
+        }
+      ]
+    },
+    {
+      "smiles": "",
+      "label": "",
+      "group": "rgroup_type_4",
+      "blocks": [
+        {
+          "smiles": "[Kr][H]"
+        },
+        {
+          "smiles": "CO[Kr]"
+        }
+      ]
+    } 
+  ]
+}

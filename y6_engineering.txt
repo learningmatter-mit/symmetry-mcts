@@ -1,0 +1,43 @@
+Core engineering
+1. Y6: c1([He])c([Ne])c2sc3c4c5nsnc5c6c7sc8c([Ne])c([He])sc8c7n([Ar])c6c4n([Ar])c3c2s1
+2. AQx-1: c1([He])c([Ne])c2sc3c4c5nc(C)c(C)nc5c6c7sc8c([Ne])c([He])sc8c7n([Ar])c6c4n([Ar])c3c2s1
+3. AQx-2: c1([He])c([Ne])c2sc3c4c5nccnc5c6c7sc8c([Ne])c([He])sc8c7n([Ar])c6c4n([Ar])c3c2s1
+4. Y11: c1([He])c([Ne])c2sc3c4c5nn([Xe])nc5c6c7sc8c([Ne])c([He])sc8c7n([Ar])c6c4n([Ar])c3c2s1
+5. Y6Se: c1([He])c([Ne])c2sc3c4c5n[se]nc5c6c7sc8c([Ne])c([He])sc8c7n([Ar])c6c4n([Ar])c3c2s1
+6. CH1007: c1([He])c([Ne])c2sc3c4c5nsnc5c6c7sc8c([Ne])c([He])[se]c8c7n([Ar])c6c4n([Ar])c3c2[se]1
+7. BPF-4F: c1([He])cc2sc3c4c5nsnc5c6c7sc8cc([He])oc8c7n([Ar])c6c4n([Ar])c3c2o1
+8. BPT-4F: c1([He])cc2sc3c4c5nsnc5c6c7sc8cc([He])sc8c7n([Ar])c6c4n([Ar])c3c2s1
+9. BPS-4F: c1([He])cc2sc3c4c5nsnc5c6c7sc8cc([He])[se]c8c7n([Ar])c6c4n([Ar])c3c2[se]1 
+
+Side-chain engineering (we'll need to choose in pairs Ne and Ar)
+1. undecyl: C([Ne])CCCCCCCCCC
+2. 2-ethylhexyl: C([Ne])C(CC)CCCC
+3. 3-ethylheptyl: C([Ne])CC(CC)CCCC
+4. 4-ethyloctyl: C([Ne])CCC(CC)CCCC
+5. 2-butyloctyl: C([Ne])C(CCCC)CCCCCC
+6. 2-hexyldecyl: C([Ne])C(CCCCCC)CCCCCCCC
+7. heptyl: C([Ne])CCCCCC
+8. nonyl: C([Ne])CCCCCCCC
+
+1. undecyl: C([Ar])CCCCCCCCCC
+2. 2-ethylhexyl: C([Ar])C(CC)CCCC
+3. 3-ethylheptyl: C([Ar])CC(CC)CCCC
+4. 4-ethyloctyl: C([Ar])CCC(CC)CCCC
+5. 2-butyloctyl: C([Ar])C(CCCC)CCCCCC
+6. 2-hexyldecyl: C([Ar])C(CCCCCC)CCCCCCCC
+7. heptyl: C([Ar])CCCCCC
+8. nonyl: C([Ar])CCCCCCCC
+
+End-group engineering
+1. Y6: C([He])=Cc1c(=C(C#N)C#N)c2cc(F)c(F)cc2c1(=o)
+2. BTP-4Cl-8: C([He])=Cc1c(=C(C#N)C#N)c2cc([Cl])c([Cl])cc2c1(=o)
+3. BTIC-4Br: C([He])=Cc1c(=C(C#N)C#N)c2cc([Br])c([Br])cc2c1(=o)
+4. BTIC-CF3-gamma: C([He])=Cc1c(=C(C#N)C#N)c2ccc(C(F)(F)(F))cc2c1(=o)
+5. Y10: C([He])=Cc1c(=C(C#N)C#N)c2cscc2c1(=o)
+6. BTTT-2Cl: C([He])=Cc1c(=C(C#N)C#N)c2csc([Cl])c2c1(=o)
+7. BTTPC: C([He])=Cc1c(=C(C#N)C#N)c2cc3ccsc3cc2c1(=o)
+8. BTTPC-Br: C([He])=Cc1c(=C(C#N)C#N)c2cc3cc([Br])sc3cc2c1(=o)
+9. BTP-ClBr: C([He])=Cc1c(=C(C#N)C#N)c2ccc([Br])c([Cl])c2c1(=o)
+10. BTP-ClBr2: C([He])=Cc1c(=C(C#N)C#N)c2cc([Br])cc([Cl])c2c1(=o)
+11. BTP-ClBr1a: C([He])=Cc1c(=C(C#N)C#N)c2cc([Br])c([Cl])cc2c1(=o)
+12. BTP-ClBr1b: C([He])=Cc1c(=C(C#N)C#N)c2cc([Cl])c([Br])cc2c1(=o)
