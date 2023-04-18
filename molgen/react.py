@@ -17,7 +17,7 @@ logger = logging.getLogger()
 
 def run(recipe_name, **kwargs):
     molecule = factory.create(recipe_name, **kwargs)
-    products = molecule.react()
+    products = molecule.react_sym()
     return products
 
 def cleanup(state):

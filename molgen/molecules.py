@@ -1,4 +1,4 @@
-
+import re
 import rdkit
 import numpy as np
 
@@ -11,6 +11,9 @@ from molgen.blocks import Block
 from molgen.blockreactor import rxn_envs, cleaner_env, old_style_rxn_envs, old_cleaner_env
 from molgen.blockreactor import make_cleaner_func
 from molgen.blockreactor import mass_under, contains_not_smarts
+
+
+inert_atoms = ['He', 'Ne', 'Ar', 'Kr', 'Xe', "Rn"]
 
 
 def add_reactive_sites(smi, num_sites, multiple=False):
@@ -85,36 +88,41 @@ class OPDMolecules:
             "1": [
                 "[*:1][He]>>[*:1]",
                 "[*:1][Ne]>>[*:1]",
-                "[*:1][Ar]>>[*:1]"
+                "[*:1][Ar]>>[*:1]",
+                "[*:1][Kr]>>[*:1]",
+                "[*:1][Xe]>>[*:1]",
+                "[*:1][Rn]>>[*:1]"
             ]
         }
 
     def update_with_reactive_sites(self, smiles_list):
         updated_list = []
-        if self.pair_tuple == ('a', 'a'):
-            group = 'stage_1'
-        elif self.pair_tuple == ('b', 'b'):
-            group = 'stage_2'
-        elif self.pair_tuple == ('c', 'c'):
-            group = 'stage_3'
 
         for smiles in smiles_list:
-            if group == 'stage_3':
+            cleaned_smiles = smiles
+            
+            inert_atom_present = False
+            for inert_atom in inert_atoms:
+                if ("[" + inert_atom + "]") in smiles:
+                    inert_atom_present = True
+                handle_finder = re.compile("\[(" + inert_atom + ")\]")
+                cleaned_smiles = handle_finder.sub('[H]', cleaned_smiles)
+
+            if not inert_atom_present:
                 blocks = []
             else:
                 blocks = [{'smiles': smiles}]
             
             molecule = {
-                'smiles': rxn_envs[self.pair_tuple].clean_smiles(smiles),
+                'smiles': cleaned_smiles,
                 'label': 'opd',
-                'group': group,
+                'group': 'zero',
                 'blocks' : blocks
             }
             updated_list.append(molecule)
-
         return updated_list
 
-    def react(self, clean=False):
+    def react_sym(self, clean=False):
         cleaner_funcs = []
         for marker_number, smarts_list in self.cleaners.items():
             cleaner_funcs.append(make_cleaner_func(smarts_list, marker_number))
@@ -130,3 +138,4 @@ class OPDMolecules:
         smiles_dicts = self.update_with_reactive_sites(single_pass_smiles)
  
         return smiles_dicts
+ 

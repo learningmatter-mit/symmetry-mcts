@@ -2,124 +2,28 @@
 # coding: utf-8
 
 import numpy as np
+import re
 # import MCTS_io
 import copy
 import random
 from molgen import react
 import json
-from chemprop.predict_one import predict_one
-from torch.utils.tensorboard import SummaryWriter
-from utils import create_dir
 import argparse
 
-def get_cores_side_chains_end_groups(json_path):
-    f = json.load(open(json_path))
-    cores = []
-    side_chains_1 = []
-    side_chains_2 = []
-    end_groups = []
+from chemprop.predict_one import predict_one
+from torch.utils.tensorboard import SummaryWriter
+from utils import (create_dir, inert_atoms, inert_pair_tuple_char, get_side_chains_end_groups,
+                   find_lowest_inert_atom, get_next_actions_opd, check_terminal, propagate_state)
+from tree_node import Tree_node
 
-    for mol in f['molecules']:
-        if mol['group'] == 'core':
-            cores.append(mol)
-        elif mol['group'] == 'side_chain_1':
-            side_chains_1.append(mol)
-        elif mol['group'] == 'side_chain_2':
-            side_chains_2.append(mol)
-        elif mol['group'] == 'end_group':
-            end_groups.append(mol)
-    return cores, end_groups, side_chains_1, side_chains_2
-
-def get_next_actions_opd(state, cores, end_groups, side_chains_1, side_chains_2):
-    new_actions = []
-
-    if check_terminal(state):
-        new_actions = []
-    elif len(state.keys()) == 0:
-        new_actions = cores
-    elif ('He' in state['blocks'][0]['smiles']):
-        new_actions = end_groups
-    elif ('Ne' in state['blocks'][0]['smiles']):
-        new_actions = side_chains_1
-    elif ('Ar' in state['blocks'][0]['smiles']):
-        new_actions = side_chains_2
-    return new_actions
-
-def check_compatibility(core, functional_group, pair_tuple):
-    if (pair_tuple == ("a", "a")) and ("He" in core['blocks'][0]['smiles']) and ("He" in functional_group['blocks'][0]['smiles']):
-        return True
-    elif (pair_tuple == ("b", "b")) and ("Ne" in core['blocks'][0]['smiles']) and ("Ne" in functional_group['blocks'][0]['smiles']):
-        return True
-    elif (pair_tuple == ("c", "c")) and ("Ar" in core['blocks'][0]['smiles']) and ("Ar" in functional_group['blocks'][0]['smiles']):
-        return True
-    else:
-        return False 
-
-def check_terminal(state):
-    if 'blocks' in state and len(state['blocks']) == 0:
-        return 1
-    return 0
-
-class Tree_node():
-    def __init__(self,state,C,parent,terminal):
-        self.state = state
-        self.is_terminal = terminal
-        self.T = 0.0
-        self.n = 0.0
-        self.C = C
-        self.parent = parent
-        self.children = []
-        self.complete_tree = False
-        self.pre_val = 0
-        self.pre_counter = 0
-    
-    def inc_T(self,val):
-        self.T += val
-    
-    def inc_n(self):
-        self.n += 1.0
-        
-    def get_n(self):
-        return self.n
-    
-    def get_T(self):
-        return self.T
-    
-    def get_v(self):
-        if self.parent == None:
-            return 1.0
-        return (self.T/self.n)
-    
-    def inc_pre_val(self,reward):
-        self.pre_val += reward
-    
-    def get_greedy(self):
-        self.u = self.T/self.n
-        return self.u
-
-    def get_UCB(self, exploration, C):
-        if exploration == 'random':
-            return random.uniform(0, 1)
-        else:
-            if self.n == 0:
-                if self.pre_counter > 0:
-                    return self.pre_val/self.pre_counter + C*np.sqrt((2*np.log(self.parent.get_n()))/(1.0))
-                else:
-                    return C*np.sqrt((2*np.log(self.parent.get_n()))/(1.0))
-            if self.parent == None:
-                return 1.0
-            self.u = (self.T/self.n) + C*np.sqrt((2*np.log(self.parent.get_n()))/(self.n))
-            return self.u
 
 class MCTS():
 
-    def __init__(self, C, decay, cores, end_groups, side_chains_1, side_chains_2, property_target=0.77, property_bound=0.2, restricted = True, exploration='non_exp', num_sims=2500):
+    def __init__(self, C, decay, side_chains, end_groups, property_target=0.77, property_bound=0.2, restricted = True, exploration='non_exp', num_sims=2500):
         
         self.C = C
         self.decay = decay
-        self.cores = cores
-        self.side_chains_1 = side_chains_1
-        self.side_chains_2 = side_chains_2
+        self.side_chains = side_chains
         self.end_groups = end_groups
         self.root = Tree_node([],self.C,None,0)
         
@@ -133,23 +37,18 @@ class MCTS():
         self.candidates = {}
         self.count = []
         
-        self.last_cat_cores = {}
-        self.last_cat_side_chains_1 = {} # plus terminal condition
-        self.last_cat_side_chains_2 = {}
+        self.last_cat_side_chains = {} # plus terminal condition
         self.last_cat_end_groups = {}
 
-        self.last_cat_cores_cache = {}
-        self.last_cat_side_chains_1_cache = {}
-        self.last_cat_side_chains_2_cache = {}
-        self.last_cat_end_groups = {}
+        self.last_cat_side_chains_cache = {}
+        self.last_cat_end_groups_cache = {}
 
         self.prev_back = {}
         self.bias = {}
         self.num = 0
         self.exploration = exploration
         self.num_sims = num_sims
-
-            
+ 
     def traverse(self,node,num, **kwargs):
         if (len(node.children) == 0) or (check_terminal(node.state)):
             return node
@@ -168,27 +67,14 @@ class MCTS():
     
     def expand(self,node, **kwargs):
         curr_state = node.state
-        next_actions = get_next_actions_opd(curr_state, self.cores, self.end_groups, self.side_chains_1, self.side_chains_2)
+        next_actions = get_next_actions_opd(curr_state, self.side_chains, self.end_groups)
  
         next_nodes = []
         for na in next_actions:
-            if na['group'] == 'core':
-                next_state = na
-                new_node = Tree_node(next_state, self.C, node, check_terminal(next_state))
-                next_nodes.append(new_node)
-                continue
-            elif na['group'] == 'end_group':
-                pair_tuple = ("a", "a")
-            elif na['group'] == 'side_chain_1':
-                pair_tuple = ("b", "b")
-            elif na['group'] == 'side_chain_2':
-                pair_tuple = ("c", "c")
-
-            next_state = react.run('opd', core=curr_state, functional_group=na, reactive_pos=0, pair_tuple=pair_tuple) 
-            next_nodes.append(next_state)
-            new_node = Tree_node(next_state,self.C,node,check_terminal(next_state))
+            next_state = propagate_state(curr_state, na)
+            new_node = Tree_node(next_state, self.C, node, check_terminal(next_state))
+            next_nodes.append(new_node)
             node.children.append(new_node)
-            continue
  
         move = np.random.randint(0,len(next_actions))
         return next_nodes[move]
@@ -196,19 +82,11 @@ class MCTS():
     def roll_out(self,node, **kwargs):
         state = copy.deepcopy(node.state)
         while not check_terminal(state):
-            next_actions = get_next_actions_opd(state,self.cores, self.end_groups, self.side_chains_1, self.side_chains_2)
+            next_actions = get_next_actions_opd(state, self.side_chains, self.end_groups)
             move = np.random.randint(0,len(next_actions))
-            if (next_actions[move]['group'] == 'core'):
-                next_action = next_actions[move]
-                state = next_action
-                continue
-            elif next_actions[move]['group'] == 'end_group':
-                pair_tuple = ("a", "a")
-            elif next_actions[move]['group'] == 'side_chain_1':
-                pair_tuple = ("b", "b")
-            elif next_actions[move]['group'] == 'side_chain_2':
-                pair_tuple = ("c", "c")
-            state = react.run('opd', core=state, functional_group=next_actions[move], reactive_pos=0, pair_tuple=pair_tuple)[0]
+            next_action = next_actions[move]
+            next_state = propagate_state(state, next_action)
+            state = next_state
         return state
         
     def backprop(self,node,rw):
@@ -216,7 +94,6 @@ class MCTS():
         node.inc_T(rw)
         if node.parent != None:
             self.backprop(node.parent,rw)
-            
             
     def run_sim(self,num):
         print("Iteration: ", num)
@@ -232,8 +109,8 @@ class MCTS():
 
         ### simulation/roll_out
         final_state = self.roll_out(leaf_node)
-        prop, uncertainty = predict_one('models/all_db_checkpoints', [[final_state['smiles']]])
-        prop = prop[0][1]
+        prop, uncertainty = predict_one('models/weights_lite', [[final_state['smiles']]])
+        prop = prop[0][0]
         uncertainty = uncertainty[0]
 
         reward = -1 * prop
@@ -260,7 +137,13 @@ class MCTS():
                     json.dump(self.stable_structures_uncs, f)
  
     def run(self, load=False):
-        self.root = Tree_node({},self.C,None,0)
+        root_state = {
+            'smiles': "c1cc2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8cc<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
+            'label': 'opd',
+            'group': 'zero',
+            'blocks': [{'smiles': 'c1([He])c([Ne])c2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8c([Ne])c([He])<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1'}]
+        }
+        self.root = Tree_node(root_state, self.C, None, 0)
         self.candidates = {}
         self.count = []
         
@@ -285,7 +168,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    cores, end_groups, side_chains_1, side_chains_2 = get_cores_side_chains_end_groups('fragments/core-fxn-y6.json')
+    side_chains, end_groups = get_side_chains_end_groups('fragments/core-fxn-y6-v2.json')
     C = args.C
     decay = args.decay
     exploration = args.exploration
@@ -295,5 +178,5 @@ if __name__ == '__main__':
     create_dir(TB_LOG_PATH)
     writer = SummaryWriter(TB_LOG_PATH)
 
-    new_sim = MCTS(C, decay, cores, end_groups, side_chains_1, side_chains_2, exploration=exploration, num_sims=num_sims)
+    new_sim = MCTS(C, decay, side_chains, end_groups, exploration=exploration, num_sims=num_sims)
     new_sim.run()
