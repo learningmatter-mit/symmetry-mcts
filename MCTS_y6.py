@@ -12,16 +12,10 @@ import argparse
 
 from chemprop.predict_one import predict_one
 from torch.utils.tensorboard import SummaryWriter
-from utils import create_dir
+from utils import create_dir, compute_molecular_mass
 from environment import Y6Environment
 from tree_node import Tree_node
-from rdkit import Chem
-from rdkit.Chem import Descriptors
 
-
-def compute_molecular_mass(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    return Descriptors.ExactMolWt(mol)
 
 class MCTS:
 
