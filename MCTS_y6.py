@@ -9,12 +9,15 @@ import random
 from molgen import react
 import json
 import argparse
+import wandb
 
 from chemprop.predict_one import predict_one
 from torch.utils.tensorboard import SummaryWriter
-from utils import create_dir, compute_molecular_mass
+from utils import create_dir, compute_molecular_mass, get_num_atoms, get_num_atoms_by_id, set_all_seeds
 from environment import Y6Environment
 from tree_node import Tree_node
+from rdkit import Chem
+from rdkit.Chem import Descriptors
 
 
 class MCTS:
@@ -113,7 +116,15 @@ class MCTS:
 
         reward = compute_molecular_mass(final_state['smiles'])
         print(reward)
+        # wandb.log({
+        #     "Iteration": num,
+        #     "Reward": reward
+        # })
         writer.add_scalar('molecular mass', reward, num)
+        writer.add_scalar('num atoms', get_num_atoms(final_state['smiles']), num)
+        writer.add_scalar('num carbon atoms', get_num_atoms_by_id(final_state['smiles'], 6), num)
+        writer.add_scalar('num sulphur atoms', get_num_atoms_by_id(final_state['smiles'], 16), num)
+        writer.add_scalar('num nitrogen atoms', get_num_atoms_by_id(final_state['smiles'], 7), num)
 
         # prop, uncertainty = predict_one('models/weights_lite', [[final_state['smiles']]])
         # prop = prop[0][0]
@@ -164,6 +175,7 @@ class MCTS:
  
         for i in range(self.num_sims):
             self.run_sim(i)
+            self.C *= 0.9994
             self.count.append(len(self.stable_structures_props))
             if i % 10000 == 0:
                 print("Iteration: " + str(i))
@@ -186,7 +198,20 @@ if __name__ == '__main__':
     create_dir(TB_LOG_PATH)
     writer = SummaryWriter(TB_LOG_PATH)
 
+    set_all_seeds(9999)
     environment = Y6Environment()
     side_chains, end_groups = environment.get_side_chains_end_groups('fragments/core-fxn-y6-v2.json')
+
+    # # start a new wandb run to track this script
+    # wandb.init(
+    #     # set the wandb project where this run will be logged
+    #     project="MCTS",
+    #     notes='Test run with Y6 derivatives',
+    #     config={
+    #     "C": C,
+    #     "num_sims": num_sims
+    #     } 
+    # )
+
     new_sim = MCTS(C, decay, side_chains, end_groups, environment=environment, exploration=exploration, num_sims=num_sims)
     new_sim.run()
