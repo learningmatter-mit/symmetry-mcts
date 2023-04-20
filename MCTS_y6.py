@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import numpy as np
+import pandas as pd
 import re
 # import MCTS_io
 import copy
@@ -35,6 +36,8 @@ class MCTS:
         self.property_bound = property_bound
         
         self.N_const = 1.0
+        self.stable_structures_list = []
+        self.stable_structures_props_list = []
         self.stable_structures_props = {}
         self.stable_structures_uncs = {}
         self.past_energies = {}
@@ -143,6 +146,8 @@ class MCTS:
 
         if final_state['smiles'] not in self.stable_structures_props.keys():
             self.stable_structures_props[final_state['smiles']] = reward
+        self.stable_structures_list.append(final_state['smiles'])
+        self.stable_structures_props_list.append(reward)
 
         if num % 1 == 0:
             if self.exploration == 'UCB_decay' or self.exploration == 'random':
@@ -150,12 +155,20 @@ class MCTS:
                     json.dump(self.stable_structures_props, f)
                 # with open('molecules_generated_uncs_exploration_{}_num_sims_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.decay), 'w') as f:
                 #     json.dump(self.stable_structures_uncs, f)
+                df = pd.DataFrame(columns=['smiles', 'rewards'])
+                df['smiles'] = self.stable_structures_list
+                df['rewards'] = self.stable_structures_props_list
+                df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}.csv'.format(self.exploration, self.num_sims, self.decay), index=False)
             else:
                 with open('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay), 'w') as f:
                     json.dump(self.stable_structures_props, f)
                 # with open('molecules_generated_uncs_exploration_{}_num_sims_{}_C_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay), 'w') as f:
                 #     json.dump(self.stable_structures_uncs, f)
- 
+                df = pd.DataFrame(columns=['smiles', 'rewards'])
+                df['smiles'] = self.stable_structures_list
+                df['rewards'] = self.stable_structures_props_list
+                df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}.csv'.format(self.exploration, self.num_sims, self.C, self.decay), index=False)
+
     def run(self, load=False):
         root_state = {
             'smiles': "c1cc2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8cc<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
