@@ -23,7 +23,7 @@ from rdkit.Chem import Descriptors
 
 class MCTS:
 
-    def __init__(self, C, decay, side_chains, end_groups, environment, property_target=0.77, property_bound=0.2, restricted = True, exploration='non_exp', num_sims=2500):
+    def __init__(self, C, decay, side_chains, end_groups, environment, property_target=0.77, property_bound=0.2, restricted=True, exploration='non_exp', num_sims=2500, reward_tp='bandgap'):
         
         self.C = C
         self.decay = decay
@@ -36,8 +36,9 @@ class MCTS:
         self.property_bound = property_bound
         
         self.N_const = 1.0
-        self.stable_structures_list = []
-        self.stable_structures_props_list = []
+
+        self.stable_structures_dict = {}
+
         self.stable_structures_props = {}
         self.stable_structures_uncs = {}
         self.past_energies = {}
@@ -55,6 +56,25 @@ class MCTS:
         self.num = 0
         self.exploration = exploration
         self.num_sims = num_sims
+        self.reward_tp = reward_tp
+ 
+    def get_metrics(self, reward, uncertainty, smiles):
+        if self.reward_tp == 'mass':
+            metrics = {
+                'molecular_mass': reward,
+                'num_atoms': get_num_atoms(smiles),
+                'num_carbon_atoms': get_num_atoms_by_id(smiles, 6),
+                'num_sulphur_atoms': get_num_atoms_by_id(smiles, 16),
+                'num_nitrogen_atoms': get_num_atoms_by_id(smiles, 7),
+                'C': self.C
+            }
+        elif self.reward_tp == 'bandgap':
+            metrics = {
+                'reward': reward,
+                'C': self.C,
+                'uncertainty': uncertainty
+            }
+        return metrics
  
     def traverse(self,node,num, **kwargs):
         if (len(node.children) == 0) or (self.environment.check_terminal(node.state)):
@@ -117,56 +137,39 @@ class MCTS:
         ### simulation/roll_out
         final_state = self.roll_out(leaf_node)
 
-        reward = compute_molecular_mass(final_state['smiles'])
-        print(reward)
-        # wandb.log({
-        #     "Iteration": num,
-        #     "Reward": reward
-        # })
-        writer.add_scalar('molecular mass', reward, num)
-        writer.add_scalar('num atoms', get_num_atoms(final_state['smiles']), num)
-        writer.add_scalar('num carbon atoms', get_num_atoms_by_id(final_state['smiles'], 6), num)
-        writer.add_scalar('num sulphur atoms', get_num_atoms_by_id(final_state['smiles'], 16), num)
-        writer.add_scalar('num nitrogen atoms', get_num_atoms_by_id(final_state['smiles'], 7), num)
+        reward, uncertainty = self.environment.get_reward(final_state['smiles'])
 
-        # prop, uncertainty = predict_one('models/weights_lite', [[final_state['smiles']]])
-        # prop = prop[0][0]
-        # uncertainty = uncertainty[0]
-
-        # reward = -1 * prop
-        # writer.add_scalar('prop_reward', reward, num)
-        # writer.add_scalar('uncertainty', uncertainty, num)
-        # if self.exploration == 'UCB_decay':
-        #     writer.add_scalar('exploration coeff', self.C, num)
  
+        metrics = self.get_metrics(reward, uncertainty, final_state['smiles'])
+        self.environment.write_to_tensorboard(writer, num, **metrics)
+
         self.backprop(leaf_node,reward)
-        # if final_state['smiles'] not in self.stable_structures_props.keys():
-        #     self.stable_structures_props[final_state['smiles']] = prop
-        #     self.stable_structures_uncs[final_state['smiles']] = uncertainty
 
         if final_state['smiles'] not in self.stable_structures_props.keys():
             self.stable_structures_props[final_state['smiles']] = reward
-        self.stable_structures_list.append(final_state['smiles'])
-        self.stable_structures_props_list.append(reward)
 
+        if 'smiles' not in self.stable_structures_dict:
+            self.stable_structures_dict['smiles'] = [final_state['smiles']]
+        else:
+            self.stable_structures_dict['smiles'].append(final_state['smiles'])
+
+
+        for key in metrics.keys():
+            if key not in self.stable_structures_dict:
+                self.stable_structures_dict[key] = [metrics[key]]
+            else:
+                self.stable_structures_dict[key].append(metrics[key])
+ 
         if num % 1 == 0:
             if self.exploration == 'UCB_decay' or self.exploration == 'random':
                 with open('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.decay), 'w') as f:
                     json.dump(self.stable_structures_props, f)
-                # with open('molecules_generated_uncs_exploration_{}_num_sims_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.decay), 'w') as f:
-                #     json.dump(self.stable_structures_uncs, f)
-                df = pd.DataFrame(columns=['smiles', 'rewards'])
-                df['smiles'] = self.stable_structures_list
-                df['rewards'] = self.stable_structures_props_list
+                df = pd.DataFrame.from_dict(self.stable_structures_dict)
                 df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}.csv'.format(self.exploration, self.num_sims, self.decay), index=False)
             else:
                 with open('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay), 'w') as f:
                     json.dump(self.stable_structures_props, f)
-                # with open('molecules_generated_uncs_exploration_{}_num_sims_{}_C_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay), 'w') as f:
-                #     json.dump(self.stable_structures_uncs, f)
-                df = pd.DataFrame(columns=['smiles', 'rewards'])
-                df['smiles'] = self.stable_structures_list
-                df['rewards'] = self.stable_structures_props_list
+                df = pd.DataFrame.from_dict(self.stable_structures_dict)
                 df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}.csv'.format(self.exploration, self.num_sims, self.C, self.decay), index=False)
 
     def run(self, load=False):
@@ -199,6 +202,7 @@ if __name__ == '__main__':
     parser.add_argument('--decay', type=float, help='decay rate', default=1.0)
     parser.add_argument('--exploration', type=str, help='Type of exploration: UCB, random, UCB_decay, UCB_penalized')
     parser.add_argument('--num_sims', type=int, help='Number of simulations', default=2500)
+    parser.add_argument('--reward', type=str, help='Type of reward: mass or bandgap')
 
     args = parser.parse_args()
 
@@ -212,19 +216,8 @@ if __name__ == '__main__':
     writer = SummaryWriter(TB_LOG_PATH)
 
     set_all_seeds(9999)
-    environment = Y6Environment()
+    environment = Y6Environment(reward_tp=args.reward)
     side_chains, end_groups = environment.get_side_chains_end_groups('fragments/core-fxn-y6-v2.json')
 
-    # # start a new wandb run to track this script
-    # wandb.init(
-    #     # set the wandb project where this run will be logged
-    #     project="MCTS",
-    #     notes='Test run with Y6 derivatives',
-    #     config={
-    #     "C": C,
-    #     "num_sims": num_sims
-    #     } 
-    # )
-
-    new_sim = MCTS(C, decay, side_chains, end_groups, environment=environment, exploration=exploration, num_sims=num_sims)
+    new_sim = MCTS(C, decay, side_chains, end_groups, environment=environment, exploration=exploration, num_sims=num_sims, reward_tp=args.reward)
     new_sim.run()

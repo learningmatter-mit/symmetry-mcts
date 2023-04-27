@@ -5,7 +5,6 @@ import torch
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
-
 def set_all_seeds(seed):
   random.seed(seed)
 #   os.environ('PYTHONHASHSEED') = str(seed)

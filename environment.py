@@ -3,9 +3,12 @@ import copy
 import re
 
 from molgen import react
+from chemprop.predict_one import predict_one
+from utils import compute_molecular_mass
+
 
 class Y6Environment:
-    def __init__(self):
+    def __init__(self, reward_tp):
         self.inert_atoms = ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn']
         self.inert_pair_tuple_char = {
             'He': 'a',
@@ -21,6 +24,7 @@ class Y6Environment:
                     'group': '',
                     'blocks': [{'smiles': ''}]
                     }
+        self.reward_tp = reward_tp
 
     def get_side_chains_end_groups(self, json_path):
         f = json.load(open(json_path))
@@ -94,6 +98,17 @@ class Y6Environment:
             return 1
         return 0
 
+    def get_reward(self, smiles):
+        if self.reward_tp == 'mass':
+            return compute_molecular_mass(smiles), 0.0
+        elif self.reward_tp == 'bandgap':
+            prop, uncertainty = predict_one('models/weights_lite', smiles)
+            return -1 * prop[0][0], uncertainty[0]
+
+    def write_to_tensorboard(self, writer, num, **kwargs):
+        for key, metric in kwargs.items():
+            writer.add_scalar(key, metric, num)
+ 
     def propagate_state(self, state, action):
         next_state = copy.deepcopy(self.empty_state)
         if callable(action) and action.__name__ == "<lambda>": # if it is a string manipulation action
