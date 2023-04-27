@@ -102,7 +102,7 @@ class Y6Environment:
         if self.reward_tp == 'mass':
             return compute_molecular_mass(smiles), 0.0
         elif self.reward_tp == 'bandgap':
-            prop, uncertainty = predict_one('models/weights_lite', smiles)
+            prop, uncertainty = predict_one('models/weights_lite', [[smiles]])
             return -1 * prop[0][0], uncertainty[0]
 
     def write_to_tensorboard(self, writer, num, **kwargs):

@@ -71,6 +71,7 @@ class MCTS:
         elif self.reward_tp == 'bandgap':
             metrics = {
                 'reward': reward,
+                'calibrated_gap': (1.592 * -1 * reward - 2.269),
                 'C': self.C,
                 'uncertainty': uncertainty
             }
@@ -162,15 +163,15 @@ class MCTS:
  
         if num % 1 == 0:
             if self.exploration == 'UCB_decay' or self.exploration == 'random':
-                with open('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.decay), 'w') as f:
+                with open('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), 'w') as f:
                     json.dump(self.stable_structures_props, f)
                 df = pd.DataFrame.from_dict(self.stable_structures_dict)
-                df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}.csv'.format(self.exploration, self.num_sims, self.decay), index=False)
+                df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), index=False)
             else:
-                with open('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay), 'w') as f:
+                with open('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp), 'w') as f:
                     json.dump(self.stable_structures_props, f)
                 df = pd.DataFrame.from_dict(self.stable_structures_dict)
-                df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}.csv'.format(self.exploration, self.num_sims, self.C, self.decay), index=False)
+                df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp), index=False)
 
     def run(self, load=False):
         root_state = {
@@ -210,8 +211,9 @@ if __name__ == '__main__':
     decay = args.decay
     exploration = args.exploration
     num_sims = args.num_sims
+    reward_tp = args.reward
 
-    TB_LOG_PATH = './runs_exploration_{}_num_sims_{}_C_{}_decay_{}/'.format(exploration, num_sims, C, decay)
+    TB_LOG_PATH = './runs_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}/'.format(exploration, num_sims, C, decay, reward_tp)
     create_dir(TB_LOG_PATH)
     writer = SummaryWriter(TB_LOG_PATH)
 
@@ -219,5 +221,5 @@ if __name__ == '__main__':
     environment = Y6Environment(reward_tp=args.reward)
     side_chains, end_groups = environment.get_side_chains_end_groups('fragments/core-fxn-y6-v2.json')
 
-    new_sim = MCTS(C, decay, side_chains, end_groups, environment=environment, exploration=exploration, num_sims=num_sims, reward_tp=args.reward)
+    new_sim = MCTS(C, decay, side_chains, end_groups, environment=environment, exploration=exploration, num_sims=num_sims, reward_tp=reward_tp)
     new_sim.run()
