@@ -23,12 +23,10 @@ from rdkit.Chem import Descriptors
 
 class MCTS:
 
-    def __init__(self, C, decay, side_chains, end_groups, environment, property_target=0.77, property_bound=0.2, restricted=True, exploration='non_exp', num_sims=2500, reward_tp='bandgap'):
+    def __init__(self, C, decay, environment, property_target=0.77, property_bound=0.2, restricted=True, exploration='non_exp', num_sims=2500, reward_tp='bandgap'):
         
         self.C = C
         self.decay = decay
-        self.side_chains = side_chains
-        self.end_groups = end_groups
         self.root = Tree_node([],self.C,None,0)
         self.environment = environment
         
@@ -47,9 +45,11 @@ class MCTS:
         
         self.last_cat_side_chains = {} # plus terminal condition
         self.last_cat_end_groups = {}
+        self.last_cat_pi_bridges = {}
 
         self.last_cat_side_chains_cache = {}
         self.last_cat_end_groups_cache = {}
+        self.last_cat_pi_bridges_cache = {}
 
         self.prev_back = {}
         self.bias = {}
@@ -81,21 +81,24 @@ class MCTS:
         if (len(node.children) == 0) or (self.environment.check_terminal(node.state)):
             return node
         else:
-            max_next = -100000
-            index_max = -1
-            curr_ucbs = []
-            for i, child in enumerate(node.children):
-                curr_ucb = child.get_UCB(self.exploration, self.C)
-                curr_ucbs.append(curr_ucb)
-                if curr_ucb > max_next:
-                    max_next = curr_ucb
-                    index_max = i
-            
-            return self.traverse(node.children[index_max], num)
+            if self.exploration == 'random':
+                rand_index = np.random.randint(0, len(node.children))
+                return self.traverse(node.children[rand_index], num)
+            elif self.exploration == 'UCB':
+                max_next = -100000
+                index_max = -1
+                curr_ucbs = []
+                for i, child in enumerate(node.children):
+                    curr_ucb = child.get_UCB(self.exploration, self.C)
+                    curr_ucbs.append(curr_ucb)
+                    if curr_ucb > max_next:
+                        max_next = curr_ucb
+                        index_max = i
+                return self.traverse(node.children[index_max], num)
     
     def expand(self,node, **kwargs):
         curr_state = node.state
-        next_actions = self.environment.get_next_actions_opd(curr_state, self.side_chains, self.end_groups)
+        next_actions = self.environment.get_next_actions_opd(curr_state)
  
         next_nodes = []
         for na in next_actions:
@@ -110,7 +113,7 @@ class MCTS:
     def roll_out(self,node, **kwargs):
         state = copy.deepcopy(node.state)
         while not self.environment.check_terminal(state):
-            next_actions = self.environment.get_next_actions_opd(state, self.side_chains, self.end_groups)
+            next_actions = self.environment.get_next_actions_opd(state)
             move = np.random.randint(0,len(next_actions))
             next_action = next_actions[move]
             next_state = self.environment.propagate_state(state, next_action)
@@ -138,8 +141,10 @@ class MCTS:
         ### simulation/roll_out
         final_state = self.roll_out(leaf_node)
 
-        reward, uncertainty = self.environment.get_reward(final_state['smiles'])
-
+        try:
+            reward, uncertainty = self.environment.get_reward(final_state['smiles'])
+        except:
+            import pdb; pdb.set_trace()
  
         metrics = self.get_metrics(reward, uncertainty, final_state['smiles'])
         self.environment.write_to_tensorboard(writer, num, **metrics)
@@ -174,12 +179,7 @@ class MCTS:
                 df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp), index=False)
 
     def run(self, load=False):
-        root_state = {
-            'smiles': "c1cc2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8cc<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
-            'label': 'opd',
-            'group': 'zero',
-            'blocks': [{'smiles': 'c1([He])c([Ne])c2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8c([Ne])c([He])<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1'}]
-        }
+        root_state = self.environment.get_root_state() 
         self.root = Tree_node(root_state, self.C, None, 0)
         self.candidates = {}
         self.count = []
@@ -188,11 +188,12 @@ class MCTS:
             self.preload_tree()
         
             print("Done Loading")
-        
  
         for i in range(self.num_sims):
             self.run_sim(i)
-            self.C *= 0.9994
+            self.environment.reset()
+            if self.exploration == 'UCB_decay':
+                self.C *= 0.99994
             self.count.append(len(self.stable_structures_props))
             if i % 10000 == 0:
                 print("Iteration: " + str(i))
@@ -219,7 +220,8 @@ if __name__ == '__main__':
 
     set_all_seeds(9999)
     environment = Y6Environment(reward_tp=args.reward)
-    side_chains, end_groups = environment.get_side_chains_end_groups('fragments/core-fxn-y6-v2.json')
 
-    new_sim = MCTS(C, decay, side_chains, end_groups, environment=environment, exploration=exploration, num_sims=num_sims, reward_tp=reward_tp)
+    new_sim = MCTS(C, decay, environment=environment, exploration=exploration, num_sims=num_sims, reward_tp=reward_tp)
     new_sim.run()
+"CCCCCCCCC(CCCCCC)Cc1c([conj])sc2c1oc1c2sc2c3sc4c(oc5c(CC(CCCCCC)CCCCCCCC)c([conj])sc54)c3c(F)c(F)c12"
+"CCCCCCCCC(CCCCCC)Cc1c(C=c1sc([He])cc1)sc2c1oc1c2sc2c3sc4c(oc5c(CC(CCCCCC)CCCCCCCC)c([He])sc54)c3c(F)c(F)c12"
