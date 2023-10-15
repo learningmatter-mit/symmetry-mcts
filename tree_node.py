@@ -9,6 +9,7 @@ class Tree_node():
         self.T = 0.0
         self.n = 0.0
         self.C = C
+        self.fragment_counts = {'core': 0, 'pi_bridge': 0, 'end_group': 0, 'side_chain': 0}
         self.parent = parent
         self.children = []
         self.complete_tree = False
@@ -20,13 +21,17 @@ class Tree_node():
     
     def inc_n(self):
         self.n += 1.0
-        
+
     def get_n(self):
         return self.n
     
     def get_T(self):
         return self.T
-    
+
+    def inc_update_count(self, old_dict, key):
+        self.fragment_counts = old_dict
+        self.fragment_counts[key] += 1
+
     def get_v(self):
         if self.parent == None:
             return 1.0

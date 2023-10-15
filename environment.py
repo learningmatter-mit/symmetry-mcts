@@ -1,9 +1,19 @@
+import os, sys
+filepath = os.path.realpath(__file__)
+exepath = os.path.split(os.path.realpath(filepath))[0]
+paths = [exepath, 'chemprop']
+print(paths)
+sys.path.insert(0, os.path.join(*paths))
+
 import json
 import copy
 import re
 
 from molgen import react
-from chemprop.predict_one import predict_one
+from rdkit import Chem
+# from chemprop.predict_one import predict_one
+import chemprop
+from chemprop_inference import predict
 from utils import compute_molecular_mass
 
 
@@ -23,8 +33,8 @@ class BaseEnvironment:
         self.empty_state = {
                     'smiles': '',
                     'label': '',
-                    'group': '',
-                    'blocks': [{'smiles': ''}]
+                    'group': {'core': 0, 'end_group': 0, 'side_chain': 0, 'pi_bridge': 0, 'pi_bridge_terminate': 0},
+                    'blocks': [{'smiles': ''}],
                     }
         self.reward_tp = reward_tp
         self.pi_bridge_ctr = 0
@@ -36,6 +46,7 @@ class BaseEnvironment:
 
     def reset(self):
         self.pi_bridge_ctr = 0
+        # self.inc_pi_bridge_ctr = False
         # self.continue_pi_bridge = True
 
     def find_lowest_inert_atom(self, str):
@@ -58,18 +69,24 @@ class BaseEnvironment:
             ]
         elif tp == 'pos1':
             new_actions = [
+                lambda str : str.replace('<pos1>', 'nc'),
+                lambda str : str.replace('<pos1>', 'cc'),
                 lambda str : str.replace('<pos1>', 'n([Ar])'),
                 lambda str : str.replace('<pos1>', 's'),
                 lambda str : str.replace('<pos1>', 'o')
             ]
         elif tp == 'pos2':
             new_actions = [
+                lambda str : str.replace('<pos2>', 'nc'),
+                lambda str : str.replace('<pos2>', 'cc'),
                 lambda str : str.replace('<pos2>', 'n([Kr])'),
                 lambda str : str.replace('<pos2>', 's'),
                 lambda str : str.replace('<pos2>', 'o')
             ]
         elif tp == 'pos3':
             new_actions = [
+                lambda str : str.replace('<pos3>', 'nc'),
+                lambda str : str.replace('<pos3>', 'cc'),
                 lambda str : str.replace('<pos3>', 'n([Rn])'),
                 lambda str : str.replace('<pos3>', 's'),
                 lambda str : str.replace('<pos3>', 'o')
@@ -85,8 +102,18 @@ class BaseEnvironment:
         if self.reward_tp == 'mass':
             return compute_molecular_mass(smiles), 0.0
         elif self.reward_tp == 'bandgap':
-            prop, uncertainty = predict_one('models/patent_mcts_checkpoints', [[smiles]])
-            return -1 * prop[0][0], uncertainty[0]
+            # prop, uncertainty = predict_one('models/patent_mcts_checkpoints', [[smiles]])
+            arguments = [
+                '--test_path', '/dev/null',
+                '--preds_path', '/dev/null',
+                '--uncertainty_method', 'ensemble',
+                '--checkpoint_dir', 'models/patent_MCTS_checkpoints_ensemble'
+            ]
+            args = chemprop.args.PredictArgs().parse_args(arguments)
+            model_objects = chemprop.train.load_model(args=args)
+            smiles = [[smiles]]
+            preds = chemprop.train.make_predictions(args=args, smiles=smiles, model_objects=model_objects, return_uncertainty=True)
+            return -1 * preds[0][0][1], preds[1][0][1]
 
     def write_to_tensorboard(self, writer, num, **kwargs):
         for key, metric in kwargs.items():
@@ -175,7 +202,7 @@ class Y6Environment(BaseEnvironment):
         self.root_state = {
             'smiles': "c1cc2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8cc<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
             'label': 'opd',
-            'group': 'zero',
+            'group': {'core': 0, 'end_group': 0, 'side_chain': 0, 'pi_bridge': 0, 'pi_bridge_terminate': 0},
             'blocks': [{'smiles': 'c1([He])c([Ne])c2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8c([Ne])c([He])<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1'}]
         }
 
@@ -205,9 +232,8 @@ class Y6Environment(BaseEnvironment):
             new_actions = self.get_string_actions('pos2')
         elif ('pos3' in state['blocks'][0]['smiles']):
             new_actions = self.get_string_actions('pos3')
-        elif ('[He]' in state['blocks'][0]['smiles']) and (self.pi_bridge_ctr < 2):
+        elif ('[He]' in state['blocks'][0]['smiles']) and (state['group']['pi_bridge'] < 2) and (state['group']['pi_bridge_terminate'] == 0):
             new_actions = self.pi_bridges + [{}] # None is empty action i.e. no bridge. If this action is chosen, proceed to end groups as next action
-            self.pi_bridge_ctr += 1 
         elif ('[He]' in state['blocks'][0]['smiles']):
             new_actions = self.end_groups
         elif any(inert in state['blocks'][0]['smiles'] for inert in ['[Ne]', '[Ar]', '[Kr]', '[Xe]', '[Rn]']):
@@ -225,6 +251,7 @@ class Y6Environment(BaseEnvironment):
                 cleaned_smiles = handle_finder.sub('[H]', cleaned_smiles)
 
             next_state['smiles'] = cleaned_smiles
+            action_group = 'core'
         elif type(action) == dict: # if it is a react-sym action
             lowest_inert_atom = self.find_lowest_inert_atom(state['blocks'][0]['smiles'])
 
@@ -236,9 +263,10 @@ class Y6Environment(BaseEnvironment):
 
             if modified_action == {}:
                 next_state = state
+                action_group = 'pi_bridge_terminate'
                 # self.continue_pi_bridge = False
             else:
                 pair_tuple = (self.inert_pair_tuple_char[lowest_inert_atom], self.inert_pair_tuple_char[lowest_inert_atom])
                 next_state = react.run('opd', core=state, functional_group=modified_action, reactive_pos=0, pair_tuple=pair_tuple)[0]
-
-        return next_state
+                action_group = action['group']
+        return next_state, action_group

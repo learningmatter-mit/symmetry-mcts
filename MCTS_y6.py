@@ -12,7 +12,7 @@ import json
 import argparse
 import wandb
 
-from chemprop.predict_one import predict_one
+# from chemprop.predict_one import predict_one
 from torch.utils.tensorboard import SummaryWriter
 from utils import create_dir, compute_molecular_mass, get_num_atoms, get_num_atoms_by_id, set_all_seeds
 from environment import Y6Environment
@@ -23,7 +23,7 @@ from rdkit.Chem import Descriptors
 
 class MCTS:
 
-    def __init__(self, C, decay, environment, property_target=0.77, property_bound=0.2, restricted=True, exploration='non_exp', num_sims=2500, reward_tp='bandgap'):
+    def __init__(self, C, decay, environment, property_target=0.77, property_bound=0.2, restricted=True, exploration='non_exp', num_sims=2500, reward_tp='bandgap', sweep_step=-1):
         
         self.C = C
         self.decay = decay
@@ -57,6 +57,7 @@ class MCTS:
         self.exploration = exploration
         self.num_sims = num_sims
         self.reward_tp = reward_tp
+        self.sweep_step = sweep_step
  
     def get_metrics(self, reward, uncertainty, smiles):
         if self.reward_tp == 'mass':
@@ -102,7 +103,12 @@ class MCTS:
  
         next_nodes = []
         for na in next_actions:
-            next_state = self.environment.propagate_state(curr_state, na)
+            next_state, action_group = self.environment.propagate_state(curr_state, na)
+            
+            next_state_group = copy.deepcopy(curr_state['group'])
+            next_state_group[action_group] += 1
+            next_state['group'] = next_state_group
+
             new_node = Tree_node(next_state, self.C, node, self.environment.check_terminal(next_state))
             next_nodes.append(new_node)
             node.children.append(new_node)
@@ -116,7 +122,12 @@ class MCTS:
             next_actions = self.environment.get_next_actions_opd(state)
             move = np.random.randint(0,len(next_actions))
             next_action = next_actions[move]
-            next_state = self.environment.propagate_state(state, next_action)
+            next_state, action_group = self.environment.propagate_state(state, next_action)
+
+            next_state_group = copy.deepcopy(state['group'])
+            next_state_group[action_group] += 1
+            next_state['group'] = next_state_group
+
             state = next_state
         return state
         
@@ -173,10 +184,15 @@ class MCTS:
                 df = pd.DataFrame.from_dict(self.stable_structures_dict)
                 df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), index=False)
             else:
-                with open('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp), 'w') as f:
+                if self.sweep_step != -1:
+                    fname = 'molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}_sweep_step_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp, self.sweep_step)
+                else:
+                    fname = 'molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp)
+                
+                with open(fname, 'w') as f:
                     json.dump(self.stable_structures_props, f)
                 df = pd.DataFrame.from_dict(self.stable_structures_dict)
-                df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp), index=False)
+                df.to_csv(fname.replace('json', 'csv'), index=False)
 
     def run(self, load=False):
         root_state = self.environment.get_root_state() 
@@ -205,6 +221,7 @@ if __name__ == '__main__':
     parser.add_argument('--exploration', type=str, help='Type of exploration: UCB, random, UCB_decay, UCB_penalized')
     parser.add_argument('--num_sims', type=int, help='Number of simulations', default=2500)
     parser.add_argument('--reward', type=str, help='Type of reward: mass or bandgap')
+    parser.add_argument('--sweep_step', type=int, help='sweep step if running parameter sweeps', default=-1)
 
     args = parser.parse_args()
 
@@ -213,15 +230,20 @@ if __name__ == '__main__':
     exploration = args.exploration
     num_sims = args.num_sims
     reward_tp = args.reward
+    sweep_step = args.sweep_step
 
-    TB_LOG_PATH = './runs_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}/'.format(exploration, num_sims, C, decay, reward_tp)
+    if sweep_step != -1:
+        TB_LOG_PATH = './runs_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}_sweep_step_{}/'.format(exploration, num_sims, C, decay, reward_tp, sweep_step)
+    else:
+        TB_LOG_PATH = './runs_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}/'.format(exploration, num_sims, C, decay, reward_tp)
+
     create_dir(TB_LOG_PATH)
     writer = SummaryWriter(TB_LOG_PATH)
 
     set_all_seeds(9999)
     environment = Y6Environment(reward_tp=args.reward)
 
-    new_sim = MCTS(C, decay, environment=environment, exploration=exploration, num_sims=num_sims, reward_tp=reward_tp)
+    new_sim = MCTS(C, decay, environment=environment, exploration=exploration, num_sims=num_sims, reward_tp=reward_tp, sweep_step=sweep_step)
     new_sim.run()
 "CCCCCCCCC(CCCCCC)Cc1c([conj])sc2c1oc1c2sc2c3sc4c(oc5c(CC(CCCCCC)CCCCCCCC)c([conj])sc54)c3c(F)c(F)c12"
 "CCCCCCCCC(CCCCCC)Cc1c(C=c1sc([He])cc1)sc2c1oc1c2sc2c3sc4c(oc5c(CC(CCCCCC)CCCCCCCC)c([He])sc54)c3c(F)c(F)c12"
