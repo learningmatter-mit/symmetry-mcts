@@ -10,6 +10,7 @@ class Tree_node():
         self.n = 0.0
         self.C = C
         self.fragment_counts = {'core': 0, 'pi_bridge': 0, 'end_group': 0, 'side_chain': 0}
+        self.fragment_identities = {'pos0': {}, 'pos1': {}, 'pos2': {}, 'pos3': {}, 'pi_bridge1': {}, 'pi_bridge2': {}, 'end_group': {}, 'side_chain': {}}
         self.parent = parent
         self.children = []
         self.complete_tree = False

@@ -12,7 +12,15 @@ class BaseAction:
             'group': {'core': 0, 'end_group': 0, 'side_chain': 0, 'pi_bridge': 0, 'pi_bridge_terminate': 0},
             'blocks': [{'smiles': ''}],
         }
-        pass
+        self.inert_pair_tuple_char = {
+            'He': 'a',
+            'Ne': 'b',
+            'Ar': 'c',
+            'Kr': 'd',
+            'Xe': 'e',
+            'Rn': 'f'
+        }
+        self.inert_atoms = ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn']
 
     def find_lowest_inert_atom(self, str):
         for atom in self.inert_atoms:
@@ -29,22 +37,27 @@ class BaseAction:
 
 
 class StringAction(BaseAction):
-    def __init__(self, keyword, replaced_text):
-        BaseAction.__init__()
+    def __init__(self, keyword, replaced_text, asymmetric=False):
+        BaseAction.__init__(self)
         self.keyword = keyword
         self.replaced_text = replaced_text
+        self.asymmetric = asymmetric
 
     def get_identifier(self):
-        res = [int(i) for i in self.keyword.split() if i.isdigit()]
+        res = re.search(r'<(.*)>', self.keyword).group(1)
         return {
             'identifier': self.replaced_text,
-            'position': res[0],
+            'key': res,
+            'position': res,
             'keyword': self.keyword,
             'replaced': self.replaced_text
         }
     
     def __call__(self, state):
-        callable_action = lambda str : str.replace(self.keyword, self.replaced_text)
+        if not self.asymmetric:
+            callable_action = lambda str : str.replace(self.keyword, self.replaced_text)
+        else:
+            callable_action = lambda str: (str.replace(self.keyword, self.replaced_text, 1)).replace(self.keyword, self.replaced_text[::-1], 1)
         next_state = copy.deepcopy(self.empty_state)
  
         smiles = state['blocks'][0]['smiles']
@@ -64,12 +77,17 @@ class StringAction(BaseAction):
 
 class DictAction(BaseAction):
     def __init__(self, action_dict):
-        BaseAction.__init__()
+        BaseAction.__init__(self)
         self.action_dict = action_dict
 
     def get_identifier(self):
         identifier_dict = copy.deepcopy(self.action_dict)
-        identifier_dict['identifier'] = self.action_dict['smiles']
+        if self.action_dict == {}:
+            identifier_dict['identifier'] = ""
+            identifier_dict['key'] = 'pi_bridge'
+        else:
+            identifier_dict['identifier'] = self.action_dict['smiles']
+            identifier_dict['key'] = self.action_dict['group']
         return identifier_dict
 
     def __call__(self, state):

@@ -38,6 +38,7 @@ class MCTS:
         self.stable_structures_dict = {}
 
         self.stable_structures_props = {}
+        self.stable_structures_action_history = {}
         self.stable_structures_uncs = {}
         self.past_energies = {}
         self.candidates = {}
@@ -109,6 +110,18 @@ class MCTS:
             next_state_group[action_group] += 1
             next_state['group'] = next_state_group
 
+            next_state_fragments = copy.deepcopy(curr_state['fragments'])
+            key = na.get_identifier()['key']
+            identifier = na.get_identifier()['identifier']
+
+            if key.startswith('pos') or key == 'end_group' or key == 'side_chain':
+                next_state_fragments[key] = identifier
+                next_state['fragments'] = next_state_fragments
+            elif key.startswith('pi_bridge'):
+                num_occurrences = len(next_state_fragments['pi_bridge_1']) + len(next_state_fragments['pi_bridge_2'])
+                next_state_fragments[key + '_' + str(num_occurrences + 1)] = identifier
+                next_state['fragments'] = next_state_fragments
+
             new_node = Tree_node(next_state, self.C, node, self.environment.check_terminal(next_state))
             next_nodes.append(new_node)
             node.children.append(new_node)
@@ -127,6 +140,18 @@ class MCTS:
             next_state_group = copy.deepcopy(state['group'])
             next_state_group[action_group] += 1
             next_state['group'] = next_state_group
+
+            next_state_fragments = copy.deepcopy(state['fragments'])
+            key = next_action.get_identifier()['key']
+            identifier = next_action.get_identifier()['identifier']
+
+            if key.startswith('pos') or key == 'end_group' or key == 'side_chain':
+                next_state_fragments[key] = identifier
+                next_state['fragments'] = next_state_fragments
+            elif key.startswith('pi_bridge'):
+                num_occurrences = int(next_state_fragments['pi_bridge_1'] != "") + int(next_state_fragments['pi_bridge_2'] != "")
+                next_state_fragments[key + '_' + str(num_occurrences + 1)] = identifier
+                next_state['fragments'] = next_state_fragments
 
             state = next_state
         return state
@@ -170,6 +195,8 @@ class MCTS:
         else:
             self.stable_structures_dict['smiles'].append(final_state['smiles'])
 
+        if final_state['smiles'] not in self.stable_structures_action_history.keys():
+            self.stable_structures_action_history[final_state['smiles']] = final_state['fragments']
 
         for key in metrics.keys():
             if key not in self.stable_structures_dict:
@@ -181,8 +208,11 @@ class MCTS:
             if self.exploration == 'UCB_decay' or self.exploration == 'random':
                 with open('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), 'w') as f:
                     json.dump(self.stable_structures_props, f)
-                df = pd.DataFrame.from_dict(self.stable_structures_dict)
-                df.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), index=False)
+                df_stable_structures = pd.DataFrame.from_dict(self.stable_structures_dict)
+                df_stable_structures.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), index=False)
+
+                with open('molecules_generated_action_history_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), 'w') as f:
+                    json.dump(self.stable_structures_action_history, f)
             else:
                 if self.sweep_step != -1:
                     fname = 'molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}_sweep_step_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp, self.sweep_step)

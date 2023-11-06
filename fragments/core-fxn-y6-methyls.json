@@ -37,6 +37,20 @@
 				{"smiles": "c1([He])c2nsnc2c([He])cc1"}
 			]
 		},{
+			"smiles": "c1ccccc1",
+			"label": "opd",
+			"group": "pi_bridge",
+			"blocks": [
+				{"smiles": "c1([He])ccc([He])cc1"}
+			]
+		},{
+			"smiles": "N1C=CC=C1",
+			"label": "opd",
+			"group": "pi_bridge",
+			"blocks": [
+				{"smiles": "N1C([He])=CC=C([He])1"}
+			]
+		},{
 			"smiles": "C=C1C(=C(C#N)C#N)c2cc(F)c(F)cc2C1(=O)",
 			"label": "opd",
 			"group": "end_group",
