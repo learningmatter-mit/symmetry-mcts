@@ -4,7 +4,6 @@
 import numpy as np
 import pandas as pd
 import re
-# import MCTS_io
 import copy
 import random
 from molgen import react
@@ -23,43 +22,79 @@ from rdkit.Chem import Descriptors
 
 class MCTS:
 
-    def __init__(self, C, decay, environment, property_target=0.77, property_bound=0.2, restricted=True, exploration='non_exp', num_sims=2500, reward_tp='bandgap', sweep_step=-1):
+    def __init__(self, C, decay, environment, exploration='non_exp', num_sims=2500, reward_tp='bandgap', sweep_step=-1):
         
         self.C = C
         self.decay = decay
         self.root = Tree_node([],self.C,None,0)
         self.environment = environment
         
-        self.property_target = property_target
-        self.property_bound = property_bound
-        
-        self.N_const = 1.0
-
         self.stable_structures_dict = {}
 
         self.stable_structures_props = {}
         self.stable_structures_action_history = {}
-        self.stable_structures_uncs = {}
-        self.past_energies = {}
-        self.candidates = {}
-        self.count = []
         
-        self.last_cat_side_chains = {} # plus terminal condition
-        self.last_cat_end_groups = {}
-        self.last_cat_pi_bridges = {}
-
-        self.last_cat_side_chains_cache = {}
-        self.last_cat_end_groups_cache = {}
-        self.last_cat_pi_bridges_cache = {}
-
-        self.prev_back = {}
-        self.bias = {}
-        self.num = 0
         self.exploration = exploration
         self.num_sims = num_sims
         self.reward_tp = reward_tp
         self.sweep_step = sweep_step
  
+    def process_next_state(self, curr_state, next_state, action_group, next_action):
+        next_state_group = copy.deepcopy(curr_state['group'])
+        next_state_group[action_group] += 1
+        next_state['group'] = next_state_group
+
+        next_state_fragments = copy.deepcopy(curr_state['fragments'])
+        key = next_action.get_identifier()['key']
+        identifier = next_action.get_identifier()['identifier']
+
+        if key.startswith('pos') or key == 'end_group' or key == 'side_chain':
+            next_state_fragments[key] = identifier
+            next_state['fragments'] = next_state_fragments
+        elif key.startswith('pi_bridge'):
+            num_occurrences = len(next_state_fragments['pi_bridge_1']) + len(next_state_fragments['pi_bridge_2'])
+            next_state_fragments[key + '_' + str(num_occurrences + 1)] = identifier
+            next_state['fragments'] = next_state_fragments
+        return next_state
+
+    def save_outputs(self, final_state, reward, metrics, num):
+        if final_state['smiles'] not in self.stable_structures_props.keys():
+            self.stable_structures_props[final_state['smiles']] = reward
+
+        if 'smiles' not in self.stable_structures_dict:
+            self.stable_structures_dict['smiles'] = [final_state['smiles']]
+        else:
+            self.stable_structures_dict['smiles'].append(final_state['smiles'])
+
+        if final_state['smiles'] not in self.stable_structures_action_history.keys():
+            self.stable_structures_action_history[final_state['smiles']] = final_state['fragments']
+
+        for key in metrics.keys():
+            if key not in self.stable_structures_dict:
+                self.stable_structures_dict[key] = [metrics[key]]
+            else:
+                self.stable_structures_dict[key].append(metrics[key])
+ 
+        if num % 1 == 0:
+            if self.exploration == 'UCB_decay' or self.exploration == 'random':
+                with open('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), 'w') as f:
+                    json.dump(self.stable_structures_props, f)
+                df_stable_structures = pd.DataFrame.from_dict(self.stable_structures_dict)
+                df_stable_structures.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), index=False)
+
+                with open('molecules_generated_action_history_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), 'w') as f:
+                    json.dump(self.stable_structures_action_history, f)
+            else:
+                if self.sweep_step != -1:
+                    fname = 'molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}_sweep_step_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp, self.sweep_step)
+                else:
+                    fname = 'molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp)
+                
+                with open(fname, 'w') as f:
+                    json.dump(self.stable_structures_props, f)
+                df = pd.DataFrame.from_dict(self.stable_structures_dict)
+                df.to_csv(fname.replace('json', 'csv'), index=False)
+
     def get_metrics(self, reward, uncertainty, smiles):
         if self.reward_tp == 'mass':
             metrics = {
@@ -106,22 +141,7 @@ class MCTS:
         for na in next_actions:
             next_state, action_group = self.environment.propagate_state(curr_state, na)
             
-            next_state_group = copy.deepcopy(curr_state['group'])
-            next_state_group[action_group] += 1
-            next_state['group'] = next_state_group
-
-            next_state_fragments = copy.deepcopy(curr_state['fragments'])
-            key = na.get_identifier()['key']
-            identifier = na.get_identifier()['identifier']
-
-            if key.startswith('pos') or key == 'end_group' or key == 'side_chain':
-                next_state_fragments[key] = identifier
-                next_state['fragments'] = next_state_fragments
-            elif key.startswith('pi_bridge'):
-                num_occurrences = len(next_state_fragments['pi_bridge_1']) + len(next_state_fragments['pi_bridge_2'])
-                next_state_fragments[key + '_' + str(num_occurrences + 1)] = identifier
-                next_state['fragments'] = next_state_fragments
-
+            next_state = self.process_next_state(curr_state, next_state, action_group, na)
             new_node = Tree_node(next_state, self.C, node, self.environment.check_terminal(next_state))
             next_nodes.append(new_node)
             node.children.append(new_node)
@@ -137,22 +157,7 @@ class MCTS:
             next_action = next_actions[move]
             next_state, action_group = self.environment.propagate_state(state, next_action)
 
-            next_state_group = copy.deepcopy(state['group'])
-            next_state_group[action_group] += 1
-            next_state['group'] = next_state_group
-
-            next_state_fragments = copy.deepcopy(state['fragments'])
-            key = next_action.get_identifier()['key']
-            identifier = next_action.get_identifier()['identifier']
-
-            if key.startswith('pos') or key == 'end_group' or key == 'side_chain':
-                next_state_fragments[key] = identifier
-                next_state['fragments'] = next_state_fragments
-            elif key.startswith('pi_bridge'):
-                num_occurrences = int(next_state_fragments['pi_bridge_1'] != "") + int(next_state_fragments['pi_bridge_2'] != "")
-                next_state_fragments[key + '_' + str(num_occurrences + 1)] = identifier
-                next_state['fragments'] = next_state_fragments
-
+            next_state = self.process_next_state(state, next_state, action_group, next_action)
             state = next_state
         return state
         
@@ -164,71 +169,26 @@ class MCTS:
             
     def run_sim(self,num):
         print("Iteration: ", num)
-        self.num = num 
-        ### selection
+        # selection
         curr_node = self.root
-        
         leaf_node = self.traverse(curr_node, num)
         
-        ### expansion and not check_terminal(leaf_node.state)
+        # expansion and not check_terminal(leaf_node.state)
         if leaf_node.get_n() != 0 and not self.environment.check_terminal(leaf_node.state):
             leaf_node = self.expand(leaf_node)
 
-        ### simulation/roll_out
+        # simulation/roll_out
         final_state = self.roll_out(leaf_node)
-
-        try:
-            reward, uncertainty = self.environment.get_reward(final_state['smiles'])
-        except:
-            import pdb; pdb.set_trace()
- 
+        reward, uncertainty = self.environment.get_reward(final_state['smiles'])
         metrics = self.get_metrics(reward, uncertainty, final_state['smiles'])
         self.environment.write_to_tensorboard(writer, num, **metrics)
-
         self.backprop(leaf_node,reward)
 
-        if final_state['smiles'] not in self.stable_structures_props.keys():
-            self.stable_structures_props[final_state['smiles']] = reward
-
-        if 'smiles' not in self.stable_structures_dict:
-            self.stable_structures_dict['smiles'] = [final_state['smiles']]
-        else:
-            self.stable_structures_dict['smiles'].append(final_state['smiles'])
-
-        if final_state['smiles'] not in self.stable_structures_action_history.keys():
-            self.stable_structures_action_history[final_state['smiles']] = final_state['fragments']
-
-        for key in metrics.keys():
-            if key not in self.stable_structures_dict:
-                self.stable_structures_dict[key] = [metrics[key]]
-            else:
-                self.stable_structures_dict[key].append(metrics[key])
- 
-        if num % 1 == 0:
-            if self.exploration == 'UCB_decay' or self.exploration == 'random':
-                with open('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), 'w') as f:
-                    json.dump(self.stable_structures_props, f)
-                df_stable_structures = pd.DataFrame.from_dict(self.stable_structures_dict)
-                df_stable_structures.to_csv('molecules_generated_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.csv'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), index=False)
-
-                with open('molecules_generated_action_history_prop_exploration_{}_num_sims_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.decay, self.reward_tp), 'w') as f:
-                    json.dump(self.stable_structures_action_history, f)
-            else:
-                if self.sweep_step != -1:
-                    fname = 'molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}_sweep_step_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp, self.sweep_step)
-                else:
-                    fname = 'molecules_generated_prop_exploration_{}_num_sims_{}_C_{}_decay_{}_reward_{}.json'.format(self.exploration, self.num_sims, self.C, self.decay, self.reward_tp)
-                
-                with open(fname, 'w') as f:
-                    json.dump(self.stable_structures_props, f)
-                df = pd.DataFrame.from_dict(self.stable_structures_dict)
-                df.to_csv(fname.replace('json', 'csv'), index=False)
+        self.save_outputs(final_state, reward, metrics, num)
 
     def run(self, load=False):
         root_state = self.environment.get_root_state() 
         self.root = Tree_node(root_state, self.C, None, 0)
-        self.candidates = {}
-        self.count = []
         
         if load:
             self.preload_tree()
@@ -240,7 +200,6 @@ class MCTS:
             self.environment.reset()
             if self.exploration == 'UCB_decay':
                 self.C *= 0.99994
-            self.count.append(len(self.stable_structures_props))
             if i % 10000 == 0:
                 print("Iteration: " + str(i))
 
@@ -275,5 +234,3 @@ if __name__ == '__main__':
 
     new_sim = MCTS(C, decay, environment=environment, exploration=exploration, num_sims=num_sims, reward_tp=reward_tp, sweep_step=sweep_step)
     new_sim.run()
-"CCCCCCCCC(CCCCCC)Cc1c([conj])sc2c1oc1c2sc2c3sc4c(oc5c(CC(CCCCCC)CCCCCCCC)c([conj])sc54)c3c(F)c(F)c12"
-"CCCCCCCCC(CCCCCC)Cc1c(C=c1sc([He])cc1)sc2c1oc1c2sc2c3sc4c(oc5c(CC(CCCCCC)CCCCCCCC)c([He])sc54)c3c(F)c(F)c12"
