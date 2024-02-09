@@ -15,7 +15,7 @@ def set_all_seeds(seed):
 
 def create_dir(path):
     if not os.path.isdir(path):
-        os.mkdir(path)
+        os.makedirs(path)
 
 def compute_molecular_mass(smiles):
     mol = Chem.MolFromSmiles(smiles)

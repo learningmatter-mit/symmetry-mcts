@@ -1,25 +1,51 @@
 import os, sys
-filepath = os.path.realpath(__file__)
-exepath = os.path.split(os.path.realpath(filepath))[0]
-paths = [exepath, 'chemprop']
-print(paths)
-sys.path.insert(0, os.path.join(*paths))
+
+sys.path.insert(0, os.path.join('train_chemprop', 'chemprop'))
+# exepath = '~/experiments'
+
+# paths = [exepath, 'chemprop']
+# print(paths)
+# sys.path.insert(0, exepath)
+
+# filepath = os.path.realpath(__file__)
+# exepath = os.path.split(os.path.realpath(filepath))[0]
+# paths = [exepath, 'chemprop']
+# print(paths)
+# sys.path.insert(0, os.path.join(*paths))
 
 import json
 import copy
 import re
+import numpy as np
 
 from molgen import react
-from rdkit import Chem
+from rdkit import Chem, DataStructs
+from rdkit.Chem import AllChem
 # from chemprop.predict_one import predict_one
 import chemprop
 from chemprop_inference import predict
 from utils import compute_molecular_mass
 from actions import StringAction, DictAction
 
+# Function to generate Morgan fingerprints for a list of SMILES strings
+def generate_morgan_fingerprint(smiles, radius=2, n_bits=2048):
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is not None:
+        fingerprint = AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=n_bits)
+        fingerprint_array = np.array(fingerprint, dtype=int)
+        return fingerprint_array
+    else:
+        return None
+
+# Function to compute Tanimoto similarity between two fingerprints
+def compute_tanimoto_similarity(fp1, fp2):
+    intersection = np.sum(np.logical_and(fp1, fp2))
+    union = np.sum(np.logical_or(fp1, fp2))
+    similarity = intersection / union if union > 0 else 0.0
+    return similarity
 
 class BaseEnvironment:
-    def __init__(self, reward_tp):
+    def __init__(self, reward_tp, output_dir):
 
         # define self.root_state in constructor of inheriting class
         self.root_state = {}
@@ -31,8 +57,16 @@ class BaseEnvironment:
                     'blocks': [{'smiles': ''}],
                     }
         self.reward_tp = reward_tp
+        self.output_dir = output_dir
         self.pi_bridge_ctr = 0
         self.get_fragments('fragments/core-fxn-y6-methyls.json')
+        arguments = [
+            '--test_path', '/dev/null',
+            '--preds_path', '/dev/null',
+            '--checkpoint_dir', 'train_chemprop/chemprop_weights'
+        ]
+        self.args = chemprop.args.PredictArgs().parse_args(arguments)
+        self.model_objects = chemprop.train.load_model(args=self.args)
 
     def get_root_state(self):
         return self.root_state
@@ -90,29 +124,66 @@ class BaseEnvironment:
 
     def get_reward(self, smiles):
         if self.reward_tp == 'mass':
-            return compute_molecular_mass(smiles), 0.0
+            return compute_molecular_mass(smiles), 0, 0.0
         elif self.reward_tp == 'bandgap':
             # prop, uncertainty = predict_one('models/patent_mcts_checkpoints', [[smiles]])
             arguments = [
                 '--test_path', '/dev/null',
                 '--preds_path', '/dev/null',
                 '--uncertainty_method', 'ensemble',
-                '--checkpoint_dir', 'models/patent_MCTS_checkpoints_ensemble'
+                '--checkpoint_dir', 'train_chemprop/chemprop_weights'
             ]
             args = chemprop.args.PredictArgs().parse_args(arguments)
             model_objects = chemprop.train.load_model(args=args)
             smiles = [[smiles]]
             preds = chemprop.train.make_predictions(args=args, smiles=smiles, model_objects=model_objects, return_uncertainty=True)
-            return -1 * preds[0][0][1], preds[1][0][1]
+            return -1 * preds[0][0][1], 0, preds[1][0][1]
+        elif self.reward_tp == 'tanimoto_bandgap':
+            arguments = [
+                '--test_path', '/dev/null',
+                '--preds_path', '/dev/null',
+                '--checkpoint_dir', 'train_chemprop/chemprop_weights'
+            ]
+            # args = chemprop.args.PredictArgs().parse_args(arguments)
+            # model_objects = chemprop.train.load_model(args=args)
+            # mol = Chem.MolFromSmiles(smiles)
+            fp = generate_morgan_fingerprint(smiles)
+            smiles = [[smiles]]
+            preds = chemprop.train.make_predictions(args=self.args, smiles=smiles, model_objects=self.model_objects) #return_uncertainty=True)
+            # return -1 * preds[0][0][1], preds[1][0][1]
+            # fp = generate_morgan_fingerprint(mol)
+            if os.path.exists(os.path.join(self.output_dir, 'fingerprints.npy')):
+                saved_fps = np.load(os.path.join(self.output_dir, 'fingerprints.npy'))
+                max_score = max([compute_tanimoto_similarity(saved_fp, fp) for saved_fp in saved_fps])
+                similarity_reward = 0 if max_score >= 0.378 else 1
+            else:
+                similarity_reward = 0
+            return -1 * preds[0][1], similarity_reward, 0
 
     def write_to_tensorboard(self, writer, num, **kwargs):
         for key, metric in kwargs.items():
             writer.add_scalar(key, metric, num)
 
-
-class Y6Environment(BaseEnvironment):
+class PatentEnvironment(BaseEnvironment):
     def __init__(self, reward_tp):
         BaseEnvironment.__init__(self, reward_tp)
+        self.root_state = {}
+
+    def get_fragments(self, json_path):
+        f = json.load(open(json_path))
+        self.cores = []
+        self.side_chains = []
+        self.end_groups = []
+        self.pi_bridges = []
+
+        for mol in f['molecules']:
+            if mol['group'] == 'side_chain':
+                self.side_chains.append(DictAction(mol))
+
+
+class Y6Environment(BaseEnvironment):
+    def __init__(self, reward_tp, output_dir):
+        BaseEnvironment.__init__(self, reward_tp, output_dir)
         self.root_state = {
             'smiles': "c1cc2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8cc<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
             'label': 'opd',
