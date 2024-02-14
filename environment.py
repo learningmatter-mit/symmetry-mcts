@@ -1,17 +1,6 @@
 import os, sys
 
 sys.path.insert(0, os.path.join('train_chemprop', 'chemprop'))
-# exepath = '~/experiments'
-
-# paths = [exepath, 'chemprop']
-# print(paths)
-# sys.path.insert(0, exepath)
-
-# filepath = os.path.realpath(__file__)
-# exepath = os.path.split(os.path.realpath(filepath))[0]
-# paths = [exepath, 'chemprop']
-# print(paths)
-# sys.path.insert(0, os.path.join(*paths))
 
 import json
 import copy
@@ -21,10 +10,9 @@ import numpy as np
 from molgen import react
 from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem
-# from chemprop.predict_one import predict_one
 import chemprop
 from chemprop_inference import predict
-from utils import compute_molecular_mass
+from utils import compute_molecular_mass, get_identity_reward
 from actions import StringAction, DictAction
 
 # Function to generate Morgan fingerprints for a list of SMILES strings
@@ -45,7 +33,7 @@ def compute_tanimoto_similarity(fp1, fp2):
     return similarity
 
 class BaseEnvironment:
-    def __init__(self, reward_tp, output_dir):
+    def __init__(self, reward_tp, output_dir, reduction):
 
         # define self.root_state in constructor of inheriting class
         self.root_state = {}
@@ -67,14 +55,13 @@ class BaseEnvironment:
         ]
         self.args = chemprop.args.PredictArgs().parse_args(arguments)
         self.model_objects = chemprop.train.load_model(args=self.args)
+        self.reduction = reduction
 
     def get_root_state(self):
         return self.root_state
 
     def reset(self):
         self.pi_bridge_ctr = 0
-        # self.inc_pi_bridge_ctr = False
-        # self.continue_pi_bridge = True
 
     def get_string_actions(self, tp):
         new_actions = []
@@ -144,46 +131,27 @@ class BaseEnvironment:
                 '--preds_path', '/dev/null',
                 '--checkpoint_dir', 'train_chemprop/chemprop_weights'
             ]
-            # args = chemprop.args.PredictArgs().parse_args(arguments)
-            # model_objects = chemprop.train.load_model(args=args)
-            # mol = Chem.MolFromSmiles(smiles)
+
             fp = generate_morgan_fingerprint(smiles)
             smiles = [[smiles]]
             preds = chemprop.train.make_predictions(args=self.args, smiles=smiles, model_objects=self.model_objects) #return_uncertainty=True)
-            # return -1 * preds[0][0][1], preds[1][0][1]
-            # fp = generate_morgan_fingerprint(mol)
+
             if os.path.exists(os.path.join(self.output_dir, 'fingerprints.npy')):
                 saved_fps = np.load(os.path.join(self.output_dir, 'fingerprints.npy'))
                 max_score = max([compute_tanimoto_similarity(saved_fp, fp) for saved_fp in saved_fps])
-                similarity_reward = 0 if max_score >= 0.378 else 1
+                # similarity_reward = 0 if max_score >= 0.378 else 1
+                similarity_reward = max_score
             else:
-                similarity_reward = 0
-            return -1 * preds[0][1], similarity_reward, 0
+                similarity_reward = get_identity_reward(reduction=self.reduction)
+            return preds[0][1], similarity_reward, 0
 
     def write_to_tensorboard(self, writer, num, **kwargs):
         for key, metric in kwargs.items():
             writer.add_scalar(key, metric, num)
 
-class PatentEnvironment(BaseEnvironment):
-    def __init__(self, reward_tp):
-        BaseEnvironment.__init__(self, reward_tp)
-        self.root_state = {}
-
-    def get_fragments(self, json_path):
-        f = json.load(open(json_path))
-        self.cores = []
-        self.side_chains = []
-        self.end_groups = []
-        self.pi_bridges = []
-
-        for mol in f['molecules']:
-            if mol['group'] == 'side_chain':
-                self.side_chains.append(DictAction(mol))
-
-
 class Y6Environment(BaseEnvironment):
-    def __init__(self, reward_tp, output_dir):
-        BaseEnvironment.__init__(self, reward_tp, output_dir)
+    def __init__(self, reward_tp, output_dir, reduction):
+        BaseEnvironment.__init__(self, reward_tp, output_dir, reduction)
         self.root_state = {
             'smiles': "c1cc2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8cc<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
             'label': 'opd',
@@ -228,5 +196,4 @@ class Y6Environment(BaseEnvironment):
 
     def propagate_state(self, state, action):
         next_state, action_group = action(state)
-        string_identifier = action.get_identifier()['identifier']
         return next_state, action_group
