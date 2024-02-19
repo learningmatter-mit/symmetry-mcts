@@ -22,9 +22,9 @@ from rdkit.Chem import AllChem
 
 SCRIPT_NAME='train_MCTS.sh'
 LAST_N=100
-OUTPUT_DIR='sum_reduction_5000'
+OUTPUT_DIR='sum_reduction_5000_bugs_fixed'
 START_ITER=0
-NUM_REPETITIONS=50
+NUM_REPETITIONS=100
 
 # Function to generate Morgan fingerprints for a list of SMILES strings
 def generate_morgan_fingerprint(smiles, radius=2, n_bits=2048):
