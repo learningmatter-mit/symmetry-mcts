@@ -46,7 +46,7 @@ class MCTS:
             next_state_fragments[key] = identifier
             next_state['fragments'] = next_state_fragments
         elif key.startswith('pi_bridge'):
-            num_occurrences = len(next_state_fragments['pi_bridge_1']) + len(next_state_fragments['pi_bridge_2'])
+            num_occurrences = int(len(next_state_fragments['pi_bridge_1']) != 0) + int(len(next_state_fragments['pi_bridge_2']) != 0)
             next_state_fragments[key + '_' + str(num_occurrences + 1)] = identifier
             next_state['fragments'] = next_state_fragments
         return next_state

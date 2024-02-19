@@ -87,7 +87,7 @@ class BaseEnvironment:
         elif tp == 'pos2':
             new_actions = [
                 StringAction('<pos2>', 'nc', asymmetric=True),
-                StringAction('<pos1>', 'cn', asymmetric=True),
+                StringAction('<pos2>', 'cn', asymmetric=True),
                 StringAction('<pos2>', 'cc'),
                 StringAction('<pos2>', 'n([Kr])'),
                 StringAction('<pos2>', 's'),
@@ -96,7 +96,7 @@ class BaseEnvironment:
         elif tp == 'pos3':
             new_actions = [
                 StringAction('<pos3>', 'nc', asymmetric=True),
-                StringAction('<pos1>', 'cn', asymmetric=True),
+                StringAction('<pos2>', 'cn', asymmetric=True),
                 StringAction('<pos3>', 'cc'),
                 StringAction('<pos3>', 'n([Rn])'),
                 StringAction('<pos3>', 's'),
