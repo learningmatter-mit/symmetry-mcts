@@ -10,7 +10,7 @@
 module load anaconda/2023a
 source activate chemprop_train
 
-export TMPDIR=/state/partition1/user/$USER
+# export TMPDIR=/state/partition1/user/$USER
 
 output_dir="$1"
 iter="$2"
