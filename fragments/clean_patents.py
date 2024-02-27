@@ -30,10 +30,14 @@ def filter_molecules(smiles):
         if atoms.issubset(allowed_atoms):
             # Check for problematic atom representations
             if '[O]' not in smiles:
-                # Remove stereochemistry
-                Chem.RemoveStereochemistry(mol)
-                # Append valid SMILES to the list
-                return Chem.MolToSmiles(mol)
+                # Check for aromaticity
+                if any([atom.GetIsAromatic() for atom in mol.GetAtoms()]):
+                    # Remove stereochemistry
+                    Chem.RemoveStereochemistry(mol)
+                    # Append valid SMILES to the list
+                    return Chem.MolToSmiles(mol)
+                else:
+                    print(f"Removed molecule without aromatic ring: {smiles}")
             else:
                 print(f"Removed molecule with problematic atom representation: {smiles}")
         else:
