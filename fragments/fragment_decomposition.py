@@ -9,6 +9,9 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 
 
+def find_isotope_mass_from_string(smi):
+    return [int(mass) for mass in re.findall(r'\[(\d+)He\]', smi)]
+
 class FragmentDecomp:
     def __init__(self, smiles):
         self.fragments_set = set()
@@ -18,9 +21,6 @@ class FragmentDecomp:
         # self.reactant_smarts = '[a:1]!@[A&!He&R0,a:2]'
         # self.reactant_smarts = '[a:1]-[A&!He&R0,a:2]'
         self.mapper_dict, self.mapper_dict_inverse = self.map_unique_fragments(self.smiles)
-
-    def find_isotope_mass_from_string(self, smi):
-        return [int(mass) for mass in re.findall(r'\[(\d+)He\]', smi)]
 
     def fill_inert_positions(self, smi, fragments_tuple_list):
         mol = Chem.MolFromSmiles(smi)
@@ -73,7 +73,7 @@ class FragmentDecomp:
             canon_fragments.append(Chem.CanonSmiles(frag))
 
         for i, frag in enumerate(canon_fragments):
-            masses = self.uniquify(self.find_isotope_mass_from_string(frag))
+            masses = self.uniquify(find_isotope_mass_from_string(frag))
             new_masses = list(range(100, 100 + len(masses)))
             assert len(masses) == len(new_masses)
             for j, mass in enumerate(masses):
@@ -90,7 +90,7 @@ class FragmentDecomp:
         for i, prod in enumerate(products[0]):
             prod_smiles = Chem.MolToSmiles(prod)
             if 'He' in prod_smiles:
-                isotope_masses = self.find_isotope_mass_from_string(prod_smiles)
+                isotope_masses = find_isotope_mass_from_string(prod_smiles)
                 fragments_tuple_list = [(self.mapper_dict_inverse[isotope_mass], isotope_mass) for isotope_mass in isotope_masses]
                 filled_smiles = self.fill_inert_positions(prod_smiles, fragments_tuple_list)
                 filled_smiles_list[i] = filled_smiles
@@ -138,6 +138,10 @@ if __name__ == '__main__':
     for datum in all_data:
         fragments = fragments.union(datum)
 
+    num_positions = []
+    for frag in fragments:
+        num_positions.append(len(find_isotope_mass_from_string(frag)))
+
     
     # for i, smi in tqdm(enumerate(patent_smiles), total=len(patent_smiles)):
     #     canon_smi = Chem.CanonSmiles(smi)
@@ -150,5 +154,5 @@ if __name__ == '__main__':
     #         continue
     #     fragments = fragments.union(frags)
     
-    df_frags = pd.DataFrame({'fragments': list(fragments)})
+    df_frags = pd.DataFrame({'fragments': list(fragments), 'num_positions': list(num_positions)})
     df_frags.to_csv('fragments_patents.csv', index=False)
