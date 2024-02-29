@@ -7,25 +7,7 @@ from utils import find_isotope_mass_from_string
 
 class BaseAction:
     def __init__(self):
-        self.empty_state = {
-            'smiles': '',
-            'label': '',
-            'fragments': {'pos0': {}, 'pos1': {}, 'pos2': {}, 'pos3': {}, 'pi_bridge_1': {}, 'pi_bridge_2': {}, 'end_group': {}, 'side_chain': {}},
-            'group': {'core': 0, 'end_group': 0, 'side_chain': 0, 'pi_bridge': 0, 'pi_bridge_terminate': 0},
-            'blocks': [{'smiles': ''}],
-        }
-        self.inert_pair_tuple_char = {
-            'He': 'a',
-            'Ne': 'b',
-            'Ar': 'c',
-            'Kr': 'd',
-            'Xe': 'e',
-            'Rn': 'f'
-        }
-        self.inert_atoms = ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn']
-
-    def find_lowest_mass(self, str):
-        return min(find_isotope_mass_from_string(str))
+        pass
 
     def get_identifier(self):
         # return string identifier such as smiles for the action
@@ -35,6 +17,9 @@ class BaseAction:
     def __call__(self):
         pass
 
+    def cleanup(self, smi):
+        handle_finder = re.compile("\[(" + '\d+He' + ")\]")
+        return handle_finder.sub('[H]', smi)
 
 class StringAction(BaseAction):
     def __init__(self, keyword, replaced_text, asymmetric=False):
@@ -58,17 +43,11 @@ class StringAction(BaseAction):
             callable_action = lambda str : str.replace(self.keyword, self.replaced_text)
         else:
             callable_action = lambda str: (str.replace(self.keyword, self.replaced_text, 1)).replace(self.keyword, self.replaced_text[::-1], 1)
-        next_state = copy.deepcopy(self.empty_state)
+        next_state = copy.deepcopy(state)
  
-        smiles = state['blocks'][0]['smiles']
+        smiles = state['smiles']
         new_smiles = callable_action(smiles)
-        next_state['blocks'][0]['smiles'] = new_smiles
-
-        cleaned_smiles = next_state['blocks'][0]['smiles'] 
-        for inert_atom in self.inert_pair_tuple_char.keys():
-            handle_finder = re.compile("\[(" + inert_atom + ")\]")
-            cleaned_smiles = handle_finder.sub('[H]', cleaned_smiles)
-        next_state['smiles'] = cleaned_smiles
+        next_state['smiles'] = new_smiles
 
         action_group = 'core'
 
@@ -81,7 +60,7 @@ class DictAction(BaseAction):
 
     def get_identifier(self):
         identifier_dict = copy.deepcopy(self.action_dict)
-        identifier_dict['identifier'] = self.action_dict['smiles']
+        identifier_dict['identifier'] = self.cleanup(self.action_dict['smiles'])
         identifier_dict['key'] = self.action_dict['group']
         return identifier_dict
 

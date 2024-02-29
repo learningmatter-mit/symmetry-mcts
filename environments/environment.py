@@ -202,7 +202,7 @@ class Y6Environment(BaseEnvironment):
         return new_actions
 
     def process_next_state(self, curr_state, next_state, action_group, next_action):
-        next_state_group = copy.deepcopy(curr_state['group'])
+        next_state_group = copy.deepcopy(curr_state['group_counts'])
         next_state_group[action_group] += 1
         next_state['group_counts'] = next_state_group
 
@@ -219,23 +219,48 @@ class Y6Environment(BaseEnvironment):
             next_state['fragments'] = next_state_fragments
         return next_state
 
-# class PatentEnvironment(BaseEnvironment):
-#     def __init__(self, reward_tp, output_dir, reduction):
-#         BaseEnvironment.__init__(self, reward_tp, output_dir, reduction)
-#         self.root_state = {
-#             'smiles': "",
-#             'label': 'opd',
-#             'fragments': {'core': "", 'end_group': ""},
-#             'group': {'core': 0, 'end_group': 0},
-#             'blocks': []
-#         }
+class PatentEnvironment(BaseEnvironment):
+    def __init__(self, reward_tp, output_dir, reduction):
+        BaseEnvironment.__init__(self, reward_tp, output_dir, reduction)
+        self.root_state = {
+            'smiles': "",
+            'fragments': {'core': "", 'end_group': ""},
+            'group': {'core': 0, 'end_group': 0}
+        }
+        self.empty_state = copy.deepcopy(self.root_state)
+        self.empty_state['smiles'] = ''
+        self.get_fragments('fragments/fragments_patents.csv')
 
-#     def get_fragments(self, csv_path):
-#         df = pd.read_csv(csv_path)
-#         self.cores = []
-#         self.end_groups = []
+    def reset(self):
+        # Nothing to reset
+        pass
+    
+    def get_fragments(self, csv_path):
+        df = pd.read_csv(csv_path)
+        self.cores = []
+        self.end_groups = []
 
-#         self.cores = df.loc[df['num_positions'] > 1 and df['num_positions'] < 6, ['fragments']]
-#         self.end_groups = df.loc[df['num_positions'] == 1, ['fragments']]
+        self.cores = [DictAction({'smiles': mol, 'group': 'core'}) for mol in list(df.loc[df['num_positions'] > 1 and df['num_positions'] < 6, ['fragments']])]
+        self.end_groups = [DictAction({'smiles': mol, 'group': 'end_group'}) for mol in list(df.loc[df['num_positions'] == 1, ['fragments']])]
 
+    def get_next_actions(self, state):
+        if self.check_terminal(state):
+            new_actions = []
+        elif (state['smiles'] == ''):
+            new_actions = self.cores
+        elif ('He' in state['smiles']):
+            new_actions = self.end_groups
+        return new_actions
 
+    def process_next_state(self, curr_state, next_state, action_group, next_action):
+        next_state_group = copy.deepcopy(curr_state['group_counts'])
+        next_state_group[action_group] += 1
+        next_state['group_counts'] = next_state_group
+
+        next_state_fragments = copy.deepcopy(curr_state['fragments'])
+        key = next_action.get_identifier()['key']
+        identifier = next_action.get_identifier()['identifier']
+
+        next_state_fragments[key] = identifier
+        next_state['fragments'] = next_state_fragments
+        return next_state
