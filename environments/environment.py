@@ -6,6 +6,7 @@ import json
 import copy
 import re
 import numpy as np
+import pandas as pd
 
 from molgen import react
 from rdkit import Chem, DataStructs
@@ -153,11 +154,9 @@ class Y6Environment(BaseEnvironment):
     def __init__(self, reward_tp, output_dir, reduction):
         BaseEnvironment.__init__(self, reward_tp, output_dir, reduction)
         self.root_state = {
-            'smiles': "c1cc2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8cc<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
-            'label': 'opd',
+            'smiles': "c1([100He])c([101He])c2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8c([101He])c([100He])<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
             'fragments': {'pos0': "", 'pos1': "", 'pos2': "", 'pos3': "", 'pi_bridge_1': "", 'pi_bridge_2': "", 'end_group': "", 'side_chain': ""},
-            'group': {'core': 0, 'end_group': 0, 'side_chain': 0, 'pi_bridge': 0, 'pi_bridge_terminate': 0},
-            'blocks': [{'smiles': 'c1([He])c([Ne])c2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8c([Ne])c([He])<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1'}]
+            'group_counts': {'core': 0, 'end_group': 0, 'side_chain': 0, 'pi_bridge': 0, 'pi_bridge_terminate': 0}
         }
 
     def get_fragments(self, json_path):
@@ -197,3 +196,24 @@ class Y6Environment(BaseEnvironment):
     def propagate_state(self, state, action):
         next_state, action_group = action(state)
         return next_state, action_group
+
+# class PatentEnvironment(BaseEnvironment):
+#     def __init__(self, reward_tp, output_dir, reduction):
+#         BaseEnvironment.__init__(self, reward_tp, output_dir, reduction)
+#         self.root_state = {
+#             'smiles': "",
+#             'label': 'opd',
+#             'fragments': {'core': "", 'end_group': ""},
+#             'group': {'core': 0, 'end_group': 0},
+#             'blocks': []
+#         }
+
+#     def get_fragments(self, csv_path):
+#         df = pd.read_csv(csv_path)
+#         self.cores = []
+#         self.end_groups = []
+
+#         self.cores = df.loc[df['num_positions'] > 1 and df['num_positions'] < 6, ['fragments']]
+#         self.end_groups = df.loc[df['num_positions'] == 1, ['fragments']]
+
+

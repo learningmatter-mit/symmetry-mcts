@@ -1,4 +1,4 @@
-from molgen.builders import opd_builder
+from environments.builders import y6_builder
 
 class BuilderFactory:
     def __init__(self):
@@ -12,4 +12,4 @@ class BuilderFactory:
         return builder(**kwargs)
 
 factory = BuilderFactory()
-factory.register_builder('opd', opd_builder)
+factory.register_builder('y6', y6_builder)
