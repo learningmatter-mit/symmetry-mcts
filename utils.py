@@ -1,5 +1,6 @@
 import math
 import os
+import re
 import json
 import random
 import numpy as np
@@ -16,6 +17,9 @@ def set_all_seeds(seed):
   torch.manual_seed(seed)
   torch.cuda.manual_seed(seed)
   torch.backends.cudnn.deterministic = True
+
+def find_isotope_mass_from_string(smi):
+    return [int(mass) for mass in re.findall(r'\[(\d+)He\]', smi)]
 
 def create_dir(path):
     if not os.path.isdir(path):

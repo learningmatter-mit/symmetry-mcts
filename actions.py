@@ -1,6 +1,8 @@
 import re
+import random
 import copy
 from molgen import react
+from utils import find_isotope_mass_from_string
 
 
 class BaseAction:
@@ -22,10 +24,8 @@ class BaseAction:
         }
         self.inert_atoms = ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn']
 
-    def find_lowest_inert_atom(self, str):
-        for atom in self.inert_atoms:
-            if '[' + atom + ']' in str:
-                return atom
+    def find_lowest_mass(self, str):
+        return min(find_isotope_mass_from_string(str))
 
     def get_identifier(self):
         # return string identifier such as smiles for the action
@@ -74,7 +74,6 @@ class StringAction(BaseAction):
 
         return next_state, action_group
 
-
 class DictAction(BaseAction):
     def __init__(self, action_dict):
         BaseAction.__init__(self)
@@ -82,28 +81,12 @@ class DictAction(BaseAction):
 
     def get_identifier(self):
         identifier_dict = copy.deepcopy(self.action_dict)
-        if self.action_dict == {}:
-            identifier_dict['identifier'] = ""
-            identifier_dict['key'] = 'pi_bridge'
-        else:
-            identifier_dict['identifier'] = self.action_dict['smiles']
-            identifier_dict['key'] = self.action_dict['group']
+        identifier_dict['identifier'] = self.action_dict['smiles']
+        identifier_dict['key'] = self.action_dict['group']
         return identifier_dict
 
-    def __call__(self, state):
-        lowest_inert_atom = self.find_lowest_inert_atom(state['blocks'][0]['smiles'])
+    def __call__(self, state, pos1, pos2=100):
+        next_state = react.run(state['smiles'], self.action_dict['smiles'], pos1, pos2)
+        action_group = self.action_dict['group']
 
-        if lowest_inert_atom != 'He': # it requires a sidechain
-            modified_action = copy.deepcopy(self.action_dict)
-            modified_action['blocks'][0]['smiles'] = modified_action['blocks'][0]['smiles'].replace('inert', lowest_inert_atom)
-        else:
-            modified_action = self.action_dict
-
-        if modified_action == {}:
-            next_state = state
-            action_group = 'pi_bridge_terminate'
-        else:
-            pair_tuple = (self.inert_pair_tuple_char[lowest_inert_atom], self.inert_pair_tuple_char[lowest_inert_atom])
-            next_state = react.run('opd', core=state, functional_group=modified_action, reactive_pos=0, pair_tuple=pair_tuple)[0]
-            action_group = self.action_dict['group']
         return next_state, action_group

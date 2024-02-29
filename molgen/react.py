@@ -1,18 +1,17 @@
+import os
 import re
+import sys
 import copy
 from rdkit import Chem
 from rdkit.Chem import AllChem
-
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils import find_isotope_mass_from_string
 # cores: > 1 reactive position
 # pi bridges: 2 different reactive positions
 # end groups: 1 reactive position
 
 def num_sites_from_pos(smi, pos):
     return len(re.findall(rf'\[({pos})He\]', smi))
-
-def find_isotope_mass_from_string(smi):
-    return [int(mass) for mass in re.findall(r'\[(\d+)He\]', smi)]
 
 def uniquify(original_list):
     unique_list = []
@@ -48,6 +47,7 @@ def run(smi1, smi2, pos1, pos2):
 
 if __name__ == '__main__':
     smi1 = 'c1([100He])cc([100He])c([101He])cc1'
-    smi2 = '[100He]Br'
+    smi2 = 'c1([100He])ccc([100He])cc1'
+    # smi2 = '[100He]Br'
 
-    print(reduce_to_lowest_form(run(smi1, smi2, 101, 100)))
+    print(run(smi1, smi2, 100, 100))

@@ -36,19 +36,12 @@ def compute_tanimoto_similarity(fp1, fp2):
 class BaseEnvironment:
     def __init__(self, reward_tp, output_dir, reduction):
 
-        # define self.root_state in constructor of inheriting class
+        # define self.root_state and self.empty_state in constructor of inheriting class
         self.root_state = {}
-        self.empty_state = {
-                    'smiles': '',
-                    'label': '',
-                    'fragments': {'pos0': "", 'pos1': "", 'pos2': "", 'pos3': "", 'pi_bridge_1': "", 'pi_bridge_2': "", 'end_group': "", 'side_chain': ""},
-                    'group': {'core': 0, 'end_group': 0, 'side_chain': 0, 'pi_bridge': 0, 'pi_bridge_terminate': 0},
-                    'blocks': [{'smiles': ''}],
-                    }
+        self.empty_state = {}
+
         self.reward_tp = reward_tp
         self.output_dir = output_dir
-        self.pi_bridge_ctr = 0
-        self.get_fragments('fragments/core-fxn-y6-methyls.json')
         arguments = [
             '--test_path', '/dev/null',
             '--preds_path', '/dev/null',
@@ -58,55 +51,19 @@ class BaseEnvironment:
         self.model_objects = chemprop.train.load_model(args=self.args)
         self.reduction = reduction
 
+    def reset(self):
+        # define in inherited class
+        pass
+
+    def get_next_actions(self, state):
+        # define in inherited class
+        pass
+
     def get_root_state(self):
         return self.root_state
 
-    def reset(self):
-        self.pi_bridge_ctr = 0
-
-    def get_string_actions(self, tp):
-        new_actions = []
-        if tp == 'pos0':
-            new_actions = [
-                StringAction('<pos0>', 's'),
-                StringAction('<pos0>', 'o'),
-                StringAction('<pos0>', 'c(C)c(C)'),
-                StringAction('<pos0>', 'cc'),
-                StringAction('n<pos0>n', 'cccc'),
-                StringAction('5n<pos0>nc5', '(F)c(F)'),
-                StringAction('<pos0>', 'n([Xe])')
-            ]
-        elif tp == 'pos1':
-            new_actions = [
-                StringAction('<pos1>', 'nc', asymmetric=True),
-                StringAction('<pos1>', 'cn', asymmetric=True),
-                StringAction('<pos1>', 'cc'),
-                StringAction('<pos1>', 'n([Ar])'),
-                StringAction('<pos1>', 's'),
-                StringAction('<pos1>', 'o')
-            ]
-        elif tp == 'pos2':
-            new_actions = [
-                StringAction('<pos2>', 'nc', asymmetric=True),
-                StringAction('<pos2>', 'cn', asymmetric=True),
-                StringAction('<pos2>', 'cc'),
-                StringAction('<pos2>', 'n([Kr])'),
-                StringAction('<pos2>', 's'),
-                StringAction('<pos2>', 'o')
-            ]
-        elif tp == 'pos3':
-            new_actions = [
-                StringAction('<pos3>', 'nc', asymmetric=True),
-                StringAction('<pos2>', 'cn', asymmetric=True),
-                StringAction('<pos3>', 'cc'),
-                StringAction('<pos3>', 'n([Rn])'),
-                StringAction('<pos3>', 's'),
-                StringAction('<pos3>', 'o')
-            ]
-        return new_actions
-
     def check_terminal(self, state):
-        if 'blocks' in state and len(state['blocks']) == 0:
+        if 'He' not in state['smiles']:
             return 1
         return 0
 
@@ -140,12 +97,15 @@ class BaseEnvironment:
             if os.path.exists(os.path.join(self.output_dir, 'fingerprints.npy')):
                 saved_fps = np.load(os.path.join(self.output_dir, 'fingerprints.npy'))
                 max_score = max([compute_tanimoto_similarity(saved_fp, fp) for saved_fp in saved_fps])
-                # similarity_reward = 0 if max_score >= 0.378 else 1
                 similarity_reward = max_score
             else:
                 similarity_reward = get_identity_reward(reduction=self.reduction)
             return preds[0][1], similarity_reward, 0
 
+    def propagate_state(self, state, action):
+        next_state, action_group = action(state)
+        return next_state, action_group
+    
     def write_to_tensorboard(self, writer, num, **kwargs):
         for key, metric in kwargs.items():
             writer.add_scalar(key, metric, num)
@@ -158,7 +118,14 @@ class Y6Environment(BaseEnvironment):
             'fragments': {'pos0': "", 'pos1': "", 'pos2': "", 'pos3': "", 'pi_bridge_1': "", 'pi_bridge_2': "", 'end_group': "", 'side_chain': ""},
             'group_counts': {'core': 0, 'end_group': 0, 'side_chain': 0, 'pi_bridge': 0, 'pi_bridge_terminate': 0}
         }
+        self.empty_state = copy.deepcopy(self.root_state)
+        self.empty_state['smiles'] = ''
+        self.pi_bridge_ctr = 0
+        self.get_fragments('fragments/core-fxn-y6-methyls.json')
 
+    def reset(self):
+        self.pi_bridge_ctr = 0
+    
     def get_fragments(self, json_path):
         f = json.load(open(json_path))
         self.cores = []
@@ -174,28 +141,83 @@ class Y6Environment(BaseEnvironment):
             elif mol['group'] == 'pi_bridge':
                 self.pi_bridges.append(DictAction(mol))
 
-    def get_next_actions_opd(self, state):
+    def get_string_actions(self, tp):
+        new_actions = []
+        if tp == 'pos0':
+            new_actions = [
+                StringAction('<pos0>', 's'),
+                StringAction('<pos0>', 'o'),
+                StringAction('<pos0>', 'c(C)c(C)'),
+                StringAction('<pos0>', 'cc'),
+                StringAction('n<pos0>n', 'cccc'),
+                StringAction('5n<pos0>nc5', '(F)c(F)'),
+                StringAction('<pos0>', 'n([102He])')
+            ]
+        elif tp == 'pos1':
+            new_actions = [
+                StringAction('<pos1>', 'nc', asymmetric=True),
+                StringAction('<pos1>', 'cn', asymmetric=True),
+                StringAction('<pos1>', 'cc'),
+                StringAction('<pos1>', 'n([103He])'),
+                StringAction('<pos1>', 's'),
+                StringAction('<pos1>', 'o')
+            ]
+        elif tp == 'pos2':
+            new_actions = [
+                StringAction('<pos2>', 'nc', asymmetric=True),
+                StringAction('<pos2>', 'cn', asymmetric=True),
+                StringAction('<pos2>', 'cc'),
+                StringAction('<pos2>', 'n([104He])'),
+                StringAction('<pos2>', 's'),
+                StringAction('<pos2>', 'o')
+            ]
+        elif tp == 'pos3':
+            new_actions = [
+                StringAction('<pos3>', 'nc', asymmetric=True),
+                StringAction('<pos2>', 'cn', asymmetric=True),
+                StringAction('<pos3>', 'cc'),
+                StringAction('<pos3>', 'n([105He])'),
+                StringAction('<pos3>', 's'),
+                StringAction('<pos3>', 'o')
+            ]
+        return new_actions
+    
+    def get_next_actions(self, state):
         if self.check_terminal(state):
             new_actions = []
-        elif ('pos0' in state['blocks'][0]['smiles']):
+        elif ('pos0' in state['smiles']):
             new_actions = self.get_string_actions('pos0')
-        elif ('pos1' in state['blocks'][0]['smiles']):
+        elif ('pos1' in state['smiles']):
             new_actions = self.get_string_actions('pos1')
-        elif ('pos2' in state['blocks'][0]['smiles']):
+        elif ('pos2' in state['smiles']):
             new_actions = self.get_string_actions('pos2')
-        elif ('pos3' in state['blocks'][0]['smiles']):
+        elif ('pos3' in state['smiles']):
             new_actions = self.get_string_actions('pos3')
-        elif ('[He]' in state['blocks'][0]['smiles']) and (state['group']['pi_bridge'] < 2) and (state['group']['pi_bridge_terminate'] == 0):
-            new_actions = self.pi_bridges + [DictAction({})] # None is empty action i.e. no bridge. If this action is chosen, proceed to end groups as next action
-        elif ('[He]' in state['blocks'][0]['smiles']):
+        elif ('100He' in state['smiles']) and (state['group']['pi_bridge'] < 2) and (state['group']['pi_bridge_terminate'] == 0):
+            new_actions = self.pi_bridges + [DictAction({'smiles': '','group': 'pi_bridge_terminate'})] # None is empty action i.e. no bridge. If this action is chosen, proceed to end groups as next action
+        elif ('100He' in state['smiles']):
             new_actions = self.end_groups
-        elif any(inert in state['blocks'][0]['smiles'] for inert in ['[Ne]', '[Ar]', '[Kr]', '[Xe]', '[Rn]']):
+        elif any(pos in state['smiles'] for pos in ['101', '102', '103', '104', '105']):
             new_actions = self.side_chains
         return new_actions
 
-    def propagate_state(self, state, action):
-        next_state, action_group = action(state)
-        return next_state, action_group
+    def process_next_state(self, curr_state, next_state, action_group, next_action):
+        next_state_group = copy.deepcopy(curr_state['group'])
+        next_state_group[action_group] += 1
+        next_state['group_counts'] = next_state_group
+
+        next_state_fragments = copy.deepcopy(curr_state['fragments'])
+        key = next_action.get_identifier()['key']
+        identifier = next_action.get_identifier()['identifier']
+
+        if key.startswith('pos') or key == 'end_group' or key == 'side_chain':
+            next_state_fragments[key] = identifier
+            next_state['fragments'] = next_state_fragments
+        elif key.startswith('pi_bridge'):
+            num_occurrences = int(len(next_state_fragments['pi_bridge_1']) != 0) + int(len(next_state_fragments['pi_bridge_2']) != 0)
+            next_state_fragments[key + '_' + str(num_occurrences + 1)] = identifier
+            next_state['fragments'] = next_state_fragments
+        return next_state
 
 # class PatentEnvironment(BaseEnvironment):
 #     def __init__(self, reward_tp, output_dir, reduction):

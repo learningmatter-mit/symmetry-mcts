@@ -7,10 +7,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from tqdm import tqdm
 from joblib import Parallel, delayed
-
-
-def find_isotope_mass_from_string(smi):
-    return [int(mass) for mass in re.findall(r'\[(\d+)He\]', smi)]
+from utils import find_isotope_mass_from_string
 
 class FragmentDecomp:
     def __init__(self, smiles):
