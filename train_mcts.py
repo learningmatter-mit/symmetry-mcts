@@ -11,7 +11,7 @@ import pstats
 # from chemprop.predict_one import predict_one
 from torch.utils.tensorboard import SummaryWriter
 from utils import create_dir, get_num_atoms, get_num_atoms_by_id, set_all_seeds, get_total_reward, get_normalized_rewards
-from environments.factory import BuilderFactory
+from environments.factory import factory
 from tree_node import Tree_node
 
 
@@ -187,7 +187,7 @@ if __name__ == '__main__':
     writer = SummaryWriter(TB_LOG_PATH)
 
     set_all_seeds(9999)
-    environment = BuilderFactory().create(args.environment, reward_tp=train_params['reward'], output_dir=args.output_dir, reduction=train_params['reduction'])
+    environment = factory.create(args.environment, reward_tp=train_params['reward'], output_dir=args.output_dir, reduction=train_params['reduction'])
 
     new_sim = MCTS(train_params['C'], environment=environment, num_sims=train_params['num_sims'], reward_tp=train_params['reward'], reduction=train_params['reduction'])
     new_sim.run()

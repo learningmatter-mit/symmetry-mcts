@@ -41,7 +41,10 @@ def run(smi1, smi2, pos1, pos2):
     mol1 = Chem.MolFromSmiles(smi1)
     for i in range(num_sites):
         products = rxn.RunReactants((mol1, mol2))
+        # try:
         mol1 = products[0][0]
+        # except:
+        #     import pdb; pdb.set_trace()
 
     return Chem.MolToSmiles(mol1) 
 

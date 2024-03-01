@@ -22,7 +22,7 @@ from rdkit.Chem import AllChem
 
 SCRIPT_NAME='train_MCTS.sh'
 LAST_N=100
-OUTPUT_DIR='sum_reduction_5000_bugs_fixed'
+OUTPUT_DIR='test_folder'
 START_ITER=0
 NUM_REPETITIONS=100
 

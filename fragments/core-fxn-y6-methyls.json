@@ -25,7 +25,7 @@
 			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc([Cl])c([Cl])cc2C1(=O)",
 			"group": "end_group"
 		},{
-			"smiles": "C(100He])=C1C(=C(C#N)C#N)c2cc([Br])c([Br])cc2C1(=O)",
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc([Br])c([Br])cc2C1(=O)",
 			"group": "end_group"
 		},{
 			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2ccc(C(F)(F)(F))cc2C1(=O)",

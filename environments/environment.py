@@ -13,8 +13,9 @@ from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem
 import chemprop
 from chemprop_inference import predict
-from utils import compute_molecular_mass, get_identity_reward
-from actions import StringAction, DictAction
+from utils import compute_molecular_mass, get_identity_reward, find_isotope_mass_from_string
+from environments.actions import StringAction, DictAction
+
 
 # Function to generate Morgan fingerprints for a list of SMILES strings
 def generate_morgan_fingerprint(smiles, radius=2, n_bits=2048):
@@ -100,11 +101,7 @@ class BaseEnvironment:
                 similarity_reward = max_score
             else:
                 similarity_reward = get_identity_reward(reduction=self.reduction)
-            return preds[0][1], similarity_reward, 0
-
-    def propagate_state(self, state, action):
-        next_state, action_group = action(state)
-        return next_state, action_group
+            return preds[0][1], similarity_reward, 0 
     
     def write_to_tensorboard(self, writer, num, **kwargs):
         for key, metric in kwargs.items():
@@ -193,7 +190,7 @@ class Y6Environment(BaseEnvironment):
             new_actions = self.get_string_actions('pos2')
         elif ('pos3' in state['smiles']):
             new_actions = self.get_string_actions('pos3')
-        elif ('100He' in state['smiles']) and (state['group']['pi_bridge'] < 2) and (state['group']['pi_bridge_terminate'] == 0):
+        elif ('100He' in state['smiles']) and (state['group_counts']['pi_bridge'] < 2) and (state['group_counts']['pi_bridge_terminate'] == 0):
             new_actions = self.pi_bridges + [DictAction({'smiles': '','group': 'pi_bridge_terminate'})] # None is empty action i.e. no bridge. If this action is chosen, proceed to end groups as next action
         elif ('100He' in state['smiles']):
             new_actions = self.end_groups
@@ -204,6 +201,7 @@ class Y6Environment(BaseEnvironment):
     def process_next_state(self, curr_state, next_state, action_group, next_action):
         next_state_group = copy.deepcopy(curr_state['group_counts'])
         next_state_group[action_group] += 1
+        
         next_state['group_counts'] = next_state_group
 
         next_state_fragments = copy.deepcopy(curr_state['fragments'])
@@ -218,6 +216,11 @@ class Y6Environment(BaseEnvironment):
             next_state_fragments[key + '_' + str(num_occurrences + 1)] = identifier
             next_state['fragments'] = next_state_fragments
         return next_state
+
+    def propagate_state(self, state, action):
+        pos1 = min(find_isotope_mass_from_string(state['smiles']))
+        next_state, action_group = action(state, pos1=pos1, pos2=100)
+        return next_state, action_group
 
 class PatentEnvironment(BaseEnvironment):
     def __init__(self, reward_tp, output_dir, reduction):
@@ -264,3 +267,7 @@ class PatentEnvironment(BaseEnvironment):
         next_state_fragments[key] = identifier
         next_state['fragments'] = next_state_fragments
         return next_state
+
+    def propagate_state(self, state, action):
+        next_state, action_group = action(state, pos1=100, pos2=100)
+        return next_state, action_group
