@@ -2,8 +2,8 @@ import argparse
 import subprocess
 import itertools
 
-parser = argparse.ArgumentParser(description='driver code for MCTS')
-parser.add_argument('--sweep_step', type=int, help='sweep step', required=True)
+parser = argparse.ArgumentParser(description="driver code for MCTS")
+parser.add_argument("--sweep_step", type=int, help="sweep step", required=True)
 
 args = parser.parse_args()
 
@@ -16,9 +16,12 @@ C = C_list[sweep_step]
 # C, decay = combs[sweep_step]
 # print(C, decay)
 
-subprocess.check_call('python MCTS_y6.py'
-                        ' --C {}'
-                        ' --exploration {}'
-                        ' --num_sims {}'
-                        ' --reward {}'
-                        ' --sweep_step {}'.format(C, 'UCB', 5000, 'bandgap', sweep_step), shell=True)
+subprocess.check_call(
+    "python MCTS_y6.py"
+    " --C {}"
+    " --exploration {}"
+    " --num_sims {}"
+    " --reward {}"
+    " --sweep_step {}".format(C, "UCB", 5000, "bandgap", sweep_step),
+    shell=True,
+)

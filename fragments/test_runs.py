@@ -2,14 +2,14 @@ import re
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-sample_smiles = 'Cc1ccc2c(c1)C(C)(C)CC(C)(C)c1cc3c(cc1-2)C(C)(C)C(C)(C)c1cc(N)ccc1-3'
-sample_smiles = 'O=c1oc2ccccc2c2ccc(-c3ccc(-c4ccc5sc6ccccc6c5c4)cc3)cc12'
+sample_smiles = "Cc1ccc2c(c1)C(C)(C)CC(C)(C)c1cc3c(cc1-2)C(C)(C)C(C)(C)c1cc(N)ccc1-3"
+sample_smiles = "O=c1oc2ccccc2c2ccc(-c3ccc(-c4ccc5sc6ccccc6c5c4)cc3)cc12"
 mol = Chem.MolFromSmiles(sample_smiles)
 # reactant_smarts = '[a:1]-[A;!He;R0:2]'
 # reactant_smarts = '[a:1]!@;-[A&!He&R0,a:2]'
-reactant_smarts = '[*&R1:1]!@;-[*&!He&R0,*&R1:2]'
+reactant_smarts = "[*&R1:1]!@;-[*&!He&R0,*&R1:2]"
 
-reaction_smarts = "{}>>[*:1][{}].[*:2][{}]".format(reactant_smarts, 'Ne', 'Ne')
+reaction_smarts = "{}>>[*:1][{}].[*:2][{}]".format(reactant_smarts, "Ne", "Ne")
 
 rxn = AllChem.ReactionFromSmarts(reaction_smarts)
 products = rxn.RunReactants((mol,))
