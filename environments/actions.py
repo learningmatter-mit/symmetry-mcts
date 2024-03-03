@@ -64,6 +64,20 @@ class DictAction(BaseAction):
     def __init__(self, action_dict):
         BaseAction.__init__(self)
         self.action_dict = action_dict
+        if not self.is_valid():
+            raise Exception(
+                "Invalid smiles in action dict: ", self.action_dict["smiles"]
+            )
+
+    def is_valid(self):
+        try:
+            smi = Chem.MolFromSmiles(self.action_dict["smiles"])
+            if smi != None:
+                return True
+            else:
+                return False
+        except:
+            return False
 
     def get_identifier(self):
         identifier_dict = copy.deepcopy(self.action_dict)
@@ -73,8 +87,16 @@ class DictAction(BaseAction):
 
     def __call__(self, state, **kwargs):
         action_group = self.action_dict["group"]
+
+        # Action is empty action like pi_bridge
         if self.action_dict["smiles"] == "":
-            next_state = state
+            next_state = copy.deepcopy(state)
+            return next_state, action_group
+
+        # State is root state and you choose first action
+        if state["smiles"] == "":
+            next_state = copy.deepcopy(state)
+            next_state["smiles"] = self.action_dict["smiles"]
             return next_state, action_group
 
         pos1 = kwargs["pos1"]

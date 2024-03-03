@@ -1,3 +1,5 @@
+import os
+import sys
 import copy
 import re
 
@@ -7,6 +9,9 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from tqdm import tqdm
 from joblib import Parallel, delayed
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from utils import find_isotope_mass_from_string
 
 
@@ -158,6 +163,12 @@ if __name__ == "__main__":
     for datum in all_data:
         fragments = fragments.union(datum)
 
+    valid_fragments = []
+    for frag in fragments:
+        if Chem.MolFromSmiles(frag) != None:
+            valid_fragments.append(frag)
+        else:
+            print("Invalid fragment, skipping: ", frag)
     num_positions = []
     for frag in fragments:
         num_positions.append(len(find_isotope_mass_from_string(frag)))

@@ -73,7 +73,7 @@ class BaseEnvironment:
         return self.root_state
 
     def check_terminal(self, state):
-        if "He" not in state["smiles"]:
+        if "He" not in state["smiles"] and state != self.root_state:
             return 1
         return 0
 
@@ -280,8 +280,8 @@ class PatentEnvironment(BaseEnvironment):
         BaseEnvironment.__init__(self, reward_tp, output_dir, reduction)
         self.root_state = {
             "smiles": "",
-            "fragments": {"core": "", "end_group": ""},
-            "group": {"core": 0, "end_group": 0},
+            "fragments": {"core": "", "end_group_1": ""},
+            "group_counts": {"core": 0, "end_group": 0},
         }
         self.empty_state = copy.deepcopy(self.root_state)
         self.empty_state["smiles"] = ""
@@ -296,18 +296,23 @@ class PatentEnvironment(BaseEnvironment):
         self.cores = []
         self.end_groups = []
 
-        self.cores = [
-            DictAction({"smiles": mol, "group": "core"})
-            for mol in list(
-                df.loc[
-                    df["num_positions"] > 1 and df["num_positions"] < 6, ["fragments"]
-                ]
-            )
-        ]
-        self.end_groups = [
-            DictAction({"smiles": mol, "group": "end_group"})
-            for mol in list(df.loc[df["num_positions"] == 1, ["fragments"]])
-        ]
+        self.cores = []
+        for mol in df.loc[
+            (df["num_positions"] > 1) & (df["num_positions"] < 6), "fragments"
+        ].values:
+            try:
+                self.cores.append(DictAction({"smiles": mol, "group": "core"}))
+            except Exception as e:
+                print(f"Error creating DictAction for {mol}: {e}")
+
+        self.end_groups = []
+        for mol in df.loc[df["num_positions"] == 1, "fragments"].values:
+            try:
+                self.end_groups.append(
+                    DictAction({"smiles": mol, "group": "end_group"})
+                )
+            except Exception as e:
+                print(f"Error creating DictAction for {mol}: {e}")
 
     def get_next_actions(self, state):
         if self.check_terminal(state):
@@ -327,10 +332,21 @@ class PatentEnvironment(BaseEnvironment):
         key = next_action.get_identifier()["key"]
         identifier = next_action.get_identifier()["identifier"]
 
-        next_state_fragments[key] = identifier
-        next_state["fragments"] = next_state_fragments
+        if key.startswith("core"):
+            next_state_fragments[key] = identifier
+            next_state["fragments"] = next_state_fragments
+        elif key.startswith("end_group"):
+            num_occurrences = int(len(next_state_fragments["end_group_1"]) != 0)
+            next_state_fragments[key + "_" + str(num_occurrences + 1)] = identifier
+            next_state["fragments"] = next_state_fragments
+
         return next_state
 
     def propagate_state(self, state, action):
-        next_state, action_group = action(state, pos1=100, pos2=100)
+        if state["smiles"] == "":
+            next_state, action_group = action(state)
+        else:
+            pos1 = min(find_isotope_mass_from_string(state["smiles"]))
+            next_state, action_group = action(state, pos1=pos1, pos2=100)
+
         return next_state, action_group
