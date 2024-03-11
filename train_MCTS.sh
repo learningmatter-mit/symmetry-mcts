@@ -10,8 +10,8 @@
 module load anaconda/2023a
 source activate chemprop_train
 
-export TMPDIR=/state/partition1/user/$USER
+# export TMPDIR=/state/partition1/user/$USER
 
 output_dir="$1"
 iter="$2"
-python MCTS_y6.py --output_dir "${output_dir}" --iter "${iter}"
+python train_mcts.py --output_dir "${output_dir}" --iter "${iter}" --environment "y6"

@@ -1,139 +1,59 @@
 {
-	"cleaners": {
-	 "1": [
-	   "[*:1][He]>>[*:1]",
-	   "[*:1][Ne]>>[*:1]",
-       "[*:1][Ar]>>[*:1]"
-	   ]
-	  },
 	 "molecules": [
 		{
-			"smiles": "C",
-			"label": "opd",
-			"group": "side_chain",
-			"blocks": [
-		{"smiles": "C([inert])"}
-		]
-		},
-		{
-			"smiles": "c1sccc1",
-			"label": "opd",
-			"group": "pi_bridge",
-			"blocks": [
-				{"smiles": "c([He])1sc([He])cc1"}
-			]
+			"smiles": "C([100He])",
+			"group": "side_chain"
 		},{
-			"smiles": "C=CC=C",
-			"label": "opd",
-			"group": "pi_bridge",
-			"blocks": [
-				{"smiles": "C([He])=CC=C([He])"}
-			]
+			"smiles": "c([100He])1sc([100He])cc1",
+			"group": "pi_bridge"
 		},{
-			"smiles": "c1c2nsnc2ccc1",
-			"label": "opd",
-			"group": "pi_bridge",
-			"blocks": [
-				{"smiles": "c1([He])c2nsnc2c([He])cc1"}
-			]
+			"smiles": "C([100He])=CC=C([100He])",
+			"group": "pi_bridge"
 		},{
-			"smiles": "c1ccccc1",
-			"label": "opd",
-			"group": "pi_bridge",
-			"blocks": [
-				{"smiles": "c1([He])ccc([He])cc1"}
-			]
+			"smiles": "c1([100He])c2nsnc2c([100He])cc1",
+			"group": "pi_bridge"
 		},{
-			"smiles": "N1C=CC=C1",
-			"label": "opd",
-			"group": "pi_bridge",
-			"blocks": [
-				{"smiles": "N1C([He])=CC=C([He])1"}
-			]
+			"smiles": "c1([100He])ccc([100He])cc1",
+			"group": "pi_bridge"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cc(F)c(F)cc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cc(F)c(F)cc2C1(=O)"}
-		]
+			"smiles": "N1C([100He])=CC=C([100He])1",
+			"group": "pi_bridge"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cc([Cl])c([Cl])cc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cc([Cl])c([Cl])cc2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc(F)c(F)cc2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cc([Br])c([Br])cc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cc([Br])c([Br])cc2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc([Cl])c([Cl])cc2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2ccc(C(F)(F)(F))cc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2ccc(C(F)(F)(F))cc2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc([Br])c([Br])cc2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cscc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cscc2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2ccc(C(F)(F)(F))cc2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2csc([Cl])c2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2csc([Cl])c2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cscc2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cc3ccsc3cc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cc3ccsc3cc2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2csc([Cl])c2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cc3cc([Br])sc3cc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cc3cc([Br])sc3cc2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc3ccsc3cc2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2ccc([Br])c([Cl])c2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2ccc([Br])c([Cl])c2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc3cc([Br])sc3cc2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cc([Br])cc([Cl])c2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cc([Br])cc([Cl])c2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2ccc([Br])c([Cl])c2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cc([Br])c([Cl])cc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cc([Br])c([Cl])cc2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc([Br])cc([Cl])c2C1(=O)",
+			"group": "end_group"
 		},{
-			"smiles": "C=C1C(=C(C#N)C#N)c2cc([Cl])c([Br])cc2C1(=O)",
-			"label": "opd",
-			"group": "end_group",
-			"blocks": [
-		{"smiles": "C([He])=C1C(=C(C#N)C#N)c2cc([Cl])c([Br])cc2C1(=O)"}
-		]
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc([Br])c([Cl])cc2C1(=O)",
+			"group": "end_group"
+		},{
+			"smiles": "C([100He])=C1C(=C(C#N)C#N)c2cc([Cl])c([Br])cc2C1(=O)",
+			"group": "end_group"
 		}
    ]
  }

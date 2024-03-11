@@ -27,7 +27,7 @@
 #                            Geom, Hessian, Jacobian, MDFrame, Mechanism, Method, Mol, MolGroupObjectPermission,
 #                            MolSet, MolUserObjectPermission, PathImage, ProductLink, ReactantLink, Reaction,
 #                            ReactionPath, ReactionType, SinglePoint, Species, Stoichiometry, Trajectory)
-# import experiments 
+# import experiments
 # # Shell Plus Django Imports
 # from django.core.cache import cache
 # from django.db import transaction
@@ -48,7 +48,7 @@
 
 # if not Path(ms + '.csv').is_file():
 
-#     # for ms in molsets: 
+#     # for ms in molsets:
 #     results = Calc.objects.filter(species__group__name='opd',
 #                                     parentjob__config__name='wb97xd_def2svpd_tda_tddft_orca',
 #                                     method__name='tddft_tda_hyb_wb97xd3',
@@ -58,8 +58,8 @@
 #                                                                             'props__excitedstates',
 #                                                                             'props__lumo')
 
-#     # This takes the value of the SMILES, HOMO, and LUMO as is, and extracts the value of the optical gap 
-#     # (lambda_max) from props__excitedstates. This takes the "reddest peak", or the vertical excitation energy 
+#     # This takes the value of the SMILES, HOMO, and LUMO as is, and extracts the value of the optical gap
+#     # (lambda_max) from props__excitedstates. This takes the "reddest peak", or the vertical excitation energy
 #     # with the lowest energy (does not take into account oscillator strength)
 #     results = [[data if i != 2 else data[0]['energy'] for i, data in enumerate(result)] for result in results]
 
@@ -80,14 +80,16 @@
 
 import os, sys
 import chemprop
+
 # from chemprop_inference import predict
 # from chemprop.predict_one import predict_one
 from utils import set_all_seeds
+
 # filepath = os.path.realpath(__file__)
 # exepath = os.path.split(os.path.realpath(filepath))[0]
-exepath = '~/experiments'
+exepath = "~/experiments"
 
-paths = [exepath, 'chemprop']
+paths = [exepath, "chemprop"]
 print(paths)
 sys.path.insert(0, exepath)
 # sys.path.insert(0, os.path.join(*paths))
@@ -96,19 +98,31 @@ set_all_seeds(9999)
 
 
 arguments = [
-    '--data_path', 'patent_MCTS_train.csv',
-    '--separate_val_path', 'patent_MCTS_val.csv',
-    '--separate_test_path', 'patent_MCTS_test.csv',
-    '--target_columns', 'homo', 'gap', 'lumo',
-    '--dataset_type', 'regression',
-    '--save_dir', 'chemprop_weights',
-    '--ensemble_size', '5',
-    '--epochs', '500',
-    '--save_preds'
+    "--data_path",
+    "patent_MCTS_train.csv",
+    "--separate_val_path",
+    "patent_MCTS_val.csv",
+    "--separate_test_path",
+    "patent_MCTS_test.csv",
+    "--target_columns",
+    "homo",
+    "gap",
+    "lumo",
+    "--dataset_type",
+    "regression",
+    "--save_dir",
+    "chemprop_weights",
+    "--ensemble_size",
+    "5",
+    "--epochs",
+    "500",
+    "--save_preds",
 ]
 
 args = chemprop.args.TrainArgs().parse_args(arguments)
-mean_score, std_score = chemprop.train.cross_validate(args=args, train_func=chemprop.train.run_training)
+mean_score, std_score = chemprop.train.cross_validate(
+    args=args, train_func=chemprop.train.run_training
+)
 
 
 # arguments = [
@@ -132,4 +146,3 @@ mean_score, std_score = chemprop.train.cross_validate(args=args, train_func=chem
 # # print(chemprop.train.make_predictions(args=args, smiles=smiles, model_objects=model_objects, return_uncertainty=True))
 # # print(predict_one('models/patent_MCTS_checkpoints', [['Cc1c(-c2ccc(-c3ccc(C=CC=CC=C4C(=O)c5cc(Br)c(Cl)cc5C4=C(C#N)C#N)c4nsnc34)s2)sc2c1oc1c2sc2c3sc4c(oc5c(C)c(-c6ccc(-c7ccc(C=CC=CC=C8C(=O)c9cc(Br)c(Cl)cc9C8=C(C#N)C#N)c8nsnc78)s6)sc54)c3c(F)c(F)c12']]))
 # # print(predict_one('models/patent_MCTS_checkpoints', [['Cc1c(-c2ccc(C=C3C(=O)c4c(csc4Cl)C3=C(C#N)C#N)c3nsnc23)n(C)c2c1oc1c2sc2c3sc4c(oc5c(C)c(-c6ccc(C=C7C(=O)c8c(csc8Cl)C7=C(C#N)C#N)c7nsnc67)n(C)c54)c3c3nccnc3c12']]))
-
