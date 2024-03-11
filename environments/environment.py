@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.join("train_chemprop", "chemprop"))
 
 import json
 import copy
+import random
 import re
 import numpy as np
 import pandas as pd
@@ -280,8 +281,13 @@ class PatentEnvironment(BaseEnvironment):
         BaseEnvironment.__init__(self, reward_tp, output_dir, reduction)
         self.root_state = {
             "smiles": "",
-            "fragments": {"core": "", "end_group_1": ""},
-            "group_counts": {"core": 0, "end_group": 0},
+            "fragments": {"core": "", "pi_bridge_1": "", "end_group_1": ""},
+            "group_counts": {
+                "core": 0,
+                "pi_bridge": 0,
+                "end_group": 0,
+                "pi_bridge_terminate": 0,
+            },
         }
         self.empty_state = copy.deepcopy(self.root_state)
         self.empty_state["smiles"] = ""
@@ -305,6 +311,17 @@ class PatentEnvironment(BaseEnvironment):
             except Exception as e:
                 print(f"Error creating DictAction for {mol}: {e}")
 
+        self.pi_bridges = []
+        for mol in df.loc[(df["num_positions"] == 2), "fragments"].values:
+            if len(set(find_isotope_mass_from_string(mol))) != 2:
+                continue
+            try:
+                self.pi_bridges.append(
+                    DictAction({"smiles": mol, "group": "pi_bridge"})
+                )
+            except Exception as e:
+                print(f"Error creating DictAction for {mol}: {e}")
+
         self.end_groups = []
         for mol in df.loc[df["num_positions"] == 1, "fragments"].values:
             try:
@@ -319,6 +336,14 @@ class PatentEnvironment(BaseEnvironment):
             new_actions = []
         elif state["smiles"] == "":
             new_actions = self.cores
+        elif (
+            ("He" in state["smiles"])
+            and (state["group_counts"]["pi_bridge"] < 2)
+            and (state["group_counts"]["pi_bridge_terminate"] == 0)
+        ):
+            new_actions = self.pi_bridges + [
+                DictAction({"smiles": "", "group": "pi_bridge_terminate"})
+            ]  # None is empty action i.e. no bridge. If this action is chosen, proceed to end groups as next action
         elif "He" in state["smiles"]:
             new_actions = self.end_groups
         return new_actions
@@ -335,6 +360,13 @@ class PatentEnvironment(BaseEnvironment):
         if key.startswith("core"):
             next_state_fragments[key] = identifier
             next_state["fragments"] = next_state_fragments
+        elif key.startswith("pi_bridge"):
+            num_occurrences = 0
+            for k in next_state_fragments.keys():
+                if k.startswith("pi_bridge"):
+                    num_occurrences += int(len(next_state_fragments[k]) != 0)
+            next_state_fragments[key + "_" + str(num_occurrences + 1)] = identifier
+            next_state["fragments"] = next_state_fragments
         elif key.startswith("end_group"):
             num_occurrences = int(len(next_state_fragments["end_group_1"]) != 0)
             next_state_fragments[key + "_" + str(num_occurrences + 1)] = identifier
@@ -343,10 +375,13 @@ class PatentEnvironment(BaseEnvironment):
         return next_state
 
     def propagate_state(self, state, action):
-        if state["smiles"] == "":
+        if state["smiles"] == "" or action.action_dict["smiles"] == "":
             next_state, action_group = action(state)
         else:
-            pos1 = min(find_isotope_mass_from_string(state["smiles"]))
-            next_state, action_group = action(state, pos1=pos1, pos2=100)
+            pos1 = random.choice(find_isotope_mass_from_string(state["smiles"]))
+            pos2 = random.choice(
+                find_isotope_mass_from_string(action.action_dict["smiles"])
+            )
+            next_state, action_group = action(state, pos1=pos1, pos2=pos2)
 
         return next_state, action_group
