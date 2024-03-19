@@ -378,9 +378,14 @@ class PatentEnvironment(BaseEnvironment):
         if state["smiles"] == "" or action.action_dict["smiles"] == "":
             next_state, action_group = action(state)
         else:
-            pos1 = random.choice(find_isotope_mass_from_string(state["smiles"]))
+            pos1 = random.choice(set(find_isotope_mass_from_string(state["smiles"])))
             pos2 = random.choice(
-                find_isotope_mass_from_string(action.action_dict["smiles"])
+                set(find_isotope_mass_from_string(action.action_dict["smiles"]))
+            )
+
+            # This line is necessary to maintain symmetry of cores in pi-bridges
+            action.action_dict["smiles"] = action.action_dict["smiles"].replace(
+                pos1, pos2
             )
             next_state, action_group = action(state, pos1=pos1, pos2=pos2)
 
