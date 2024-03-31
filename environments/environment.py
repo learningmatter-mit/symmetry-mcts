@@ -375,18 +375,30 @@ class PatentEnvironment(BaseEnvironment):
             pos1 = random.choice(
                 list(set(find_isotope_mass_from_string(state["smiles"])))
             )
-            pos2 = random.choice(
-                list(set(find_isotope_mass_from_string(action.action_dict["smiles"])))
-            )
 
-            # This line is necessary to maintain symmetry of cores in pi-bridges
-            action.action_dict["smiles"] = action.action_dict["smiles"].replace(
-                str(pos1), str(pos2)
+            action_positions = list(
+                set(find_isotope_mass_from_string(action.action_dict["smiles"]))
             )
+            random_index = random.randint(0, len(action_positions) - 1)
+            pos2 = action_positions[random_index]
+
+            if action.action_dict["group"] == "pi_bridge":
+                other_pos = action_positions[1 - random_index]
+
+                # This line is necessary to maintain symmetry of cores in pi-bridges
+                # First replace by some filler atomic num, and then later replace by pos1
+                action.action_dict["smiles"] = action.action_dict["smiles"].replace(
+                    str(other_pos) + "He", str(1000) + "He"
+                )
+
             try:
                 next_state, action_group = action(state, pos1=pos1, pos2=pos2)
             except:
                 print(state, pos1, pos2, action.action_dict)
+            if action.action_dict["group"] == "pi_bridge":
+                next_state["smiles"] = next_state["smiles"].replace(
+                    str(1000) + "He", str(pos1) + "He"
+                )
 
             if (
                 compute_molecular_mass(self.fill_inert_positions(next_state["smiles"]))
