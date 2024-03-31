@@ -142,7 +142,8 @@ def driver(smi):
 
 
 if __name__ == "__main__":
-    # smiles = 'c1(C)c(c2ccccc2)sc(c3ccccc3)c1'
+    # smi1 = 'c1(C)c(c2ccccc2)sc(c3ccccc3)c1'
+    # smi1 = 'c1(c2ccccc2)c(C)sc(c3ccccc3)c1'
     # smiles = 'c1(C)cc(C)cc(CC)c1'
     # # smiles = 'N(c1ccc(CC)cc1)(c2ccc(CC)cc2)(CC)'
     # smiles = 'Cc1c(-c2ccc(C=C3C(=O)c4c(Cl)cc(Br)cc4C3=C(C#N)C#N)[nH]2)oc2c1oc1c2oc2c3oc4c5oc(-c6ccc(C=C7C(=O)c8c(Cl)cc(Br)cc8C7=C(C#N)C#N)[nH]6)c(C)c5oc4c3c3nn(C)nc3c12'
@@ -154,9 +155,9 @@ if __name__ == "__main__":
     # print(frag_obj1.get_fragments())
     # print(frag_obj2.get_fragments())
 
-    # fragments = set()
+    fragments = set()
 
-    patent_smiles = list(pd.read_csv("valid_smiles_patent_opd.csv")["smiles"])
+    patent_smiles = list(pd.read_csv("valid_smiles_patent_opd_with_Si.csv")["smiles"])
     all_data = Parallel(n_jobs=48)(delayed(driver)(smile) for smile in patent_smiles)
     all_data = [d for d in all_data if d != None]
     fragments = set()
@@ -187,4 +188,4 @@ if __name__ == "__main__":
     df_frags = pd.DataFrame(
         {"fragments": list(fragments), "num_positions": list(num_positions)}
     )
-    df_frags.to_csv("fragments_patents.csv", index=False)
+    df_frags.to_csv("fragments_patents_with_Si.csv", index=False)

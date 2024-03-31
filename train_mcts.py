@@ -199,7 +199,10 @@ class MCTS:
             print("Done Loading")
 
         for i in range(self.num_sims):
-            current_reward = self.run_sim(i)
+            try:
+                current_reward = self.run_sim(i)
+            except:
+                print("Failed action, skipping!")
             self.environment.reset()
 
 

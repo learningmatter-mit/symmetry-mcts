@@ -50,16 +50,6 @@ class BaseEnvironment:
 
         self.reward_tp = reward_tp
         self.output_dir = output_dir
-        arguments = [
-            "--test_path",
-            "/dev/null",
-            "--preds_path",
-            "/dev/null",
-            "--checkpoint_dir",
-            "train_chemprop/chemprop_weights",
-        ]
-        self.args = chemprop.args.PredictArgs().parse_args(arguments)
-        self.model_objects = chemprop.train.load_model(args=self.args)
         self.reduction = reduction
 
     def reset(self):
@@ -82,37 +72,15 @@ class BaseEnvironment:
         if self.reward_tp == "mass":
             return compute_molecular_mass(smiles), 0, 0.0
         elif self.reward_tp == "bandgap":
-            # prop, uncertainty = predict_one('models/patent_mcts_checkpoints', [[smiles]])
-            arguments = [
-                "--test_path",
-                "/dev/null",
-                "--preds_path",
-                "/dev/null",
-                "--uncertainty_method",
-                "ensemble",
-                "--checkpoint_dir",
-                "train_chemprop/chemprop_weights",
-            ]
-            args = chemprop.args.PredictArgs().parse_args(arguments)
-            model_objects = chemprop.train.load_model(args=args)
             smiles = [[smiles]]
             preds = chemprop.train.make_predictions(
-                args=args,
+                args=self.args,
                 smiles=smiles,
-                model_objects=model_objects,
+                model_objects=self.model_objects,
                 return_uncertainty=True,
             )
             return -1 * preds[0][0][1], 0, preds[1][0][1]
         elif self.reward_tp == "tanimoto_bandgap":
-            arguments = [
-                "--test_path",
-                "/dev/null",
-                "--preds_path",
-                "/dev/null",
-                "--checkpoint_dir",
-                "train_chemprop/chemprop_weights",
-            ]
-
             fp = generate_morgan_fingerprint(smiles)
             smiles = [[smiles]]
             preds = chemprop.train.make_predictions(
@@ -164,6 +132,16 @@ class Y6Environment(BaseEnvironment):
         self.empty_state["smiles"] = ""
         self.pi_bridge_ctr = 0
         self.get_fragments("fragments/core-fxn-y6-methyls.json")
+        arguments = [
+            "--test_path",
+            "/dev/null",
+            "--preds_path",
+            "/dev/null",
+            "--checkpoint_dir",
+            "train_chemprop/chemprop_weights",
+        ]
+        self.args = chemprop.args.PredictArgs().parse_args(arguments)
+        self.model_objects = chemprop.train.load_model(args=self.args)
 
     def reset(self):
         self.pi_bridge_ctr = 0
@@ -287,11 +265,22 @@ class PatentEnvironment(BaseEnvironment):
                 "pi_bridge": 0,
                 "end_group": 0,
                 "pi_bridge_terminate": 0,
+                "mmass_termination": 0,
             },
         }
         self.empty_state = copy.deepcopy(self.root_state)
         self.empty_state["smiles"] = ""
-        self.get_fragments("fragments/fragments_patents.csv")
+        self.get_fragments("fragments/fragments_patents_with_Si.csv")
+        arguments = [
+            "--test_path",
+            "/dev/null",
+            "--preds_path",
+            "/dev/null",
+            "--checkpoint_dir",
+            "train_chemprop/chemprop_weights_frag_decomp",
+        ]
+        self.args = chemprop.args.PredictArgs().parse_args(arguments)
+        self.model_objects = chemprop.train.load_model(args=self.args)
 
     def reset(self):
         # Nothing to reset
@@ -374,19 +363,38 @@ class PatentEnvironment(BaseEnvironment):
 
         return next_state
 
+    def fill_inert_positions(self, smi):
+        for isotope_num in list(set(find_isotope_mass_from_string(smi))):
+            smi = smi.replace(str(isotope_num) + "He", "H")
+        return smi
+
     def propagate_state(self, state, action):
         if state["smiles"] == "" or action.action_dict["smiles"] == "":
             next_state, action_group = action(state)
         else:
-            pos1 = random.choice(set(find_isotope_mass_from_string(state["smiles"])))
+            pos1 = random.choice(
+                list(set(find_isotope_mass_from_string(state["smiles"])))
+            )
             pos2 = random.choice(
-                set(find_isotope_mass_from_string(action.action_dict["smiles"]))
+                list(set(find_isotope_mass_from_string(action.action_dict["smiles"])))
             )
 
             # This line is necessary to maintain symmetry of cores in pi-bridges
             action.action_dict["smiles"] = action.action_dict["smiles"].replace(
-                pos1, pos2
+                str(pos1), str(pos2)
             )
-            next_state, action_group = action(state, pos1=pos1, pos2=pos2)
+            try:
+                next_state, action_group = action(state, pos1=pos1, pos2=pos2)
+            except:
+                print(state, pos1, pos2, action.action_dict)
+
+            if (
+                compute_molecular_mass(self.fill_inert_positions(next_state["smiles"]))
+                > 2000
+            ):
+                print("Early termination!")
+                next_state = copy.deepcopy(state)
+                next_state["smiles"] = self.fill_inert_positions(next_state["smiles"])
+                action_group = "mmass_termination"
 
         return next_state, action_group

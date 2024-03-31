@@ -26,7 +26,7 @@ def filter_molecules(smiles):
     mol = Chem.MolFromSmiles(smiles)
     if mol is not None:
         # Check for atoms other than C, O, N, H, Cl, Br, S, F, I
-        allowed_atoms = set(["C", "O", "N", "H", "Cl", "Br", "S", "F", "I"])
+        allowed_atoms = set(["C", "O", "N", "H", "Cl", "Br", "S", "F", "I", "Si"])
         atoms = set([atom.GetSymbol() for atom in mol.GetAtoms()])
         if atoms.issubset(allowed_atoms):
             # Check for problematic atom representations
@@ -58,4 +58,4 @@ valid_smiles = [filter_molecules(smi) for smi in df_smiles]
 df_new = pd.DataFrame({"smiles": [smi for smi in valid_smiles if smi is not None]})
 
 # Save the DataFrame to a new CSV file
-df_new.to_csv("valid_smiles_patent_opd.csv", index=False)
+df_new.to_csv("valid_smiles_patent_opd_with_Si.csv", index=False)

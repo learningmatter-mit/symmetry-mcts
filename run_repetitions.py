@@ -26,6 +26,7 @@ LAST_N = 100
 OUTPUT_DIR = "test_folder"
 START_ITER = 0
 NUM_REPETITIONS = 100
+ENVIRONMENT = "patent"
 
 
 # Function to generate Morgan fingerprints for a list of SMILES strings
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     # slurm_job_pids = []
     for iter in range(START_ITER, NUM_REPETITIONS):
         slurm_process = subprocess.Popen(
-            ["sbatch", SCRIPT_NAME, OUTPUT_DIR, str(iter)],
+            ["sbatch", SCRIPT_NAME, OUTPUT_DIR, str(iter), ENVIRONMENT],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
