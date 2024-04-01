@@ -202,7 +202,7 @@ class MCTS:
             try:
                 current_reward = self.run_sim(i)
             except:
-                print("Failed action, skipping!")
+                print("Failed! Skipping iteration")
             self.environment.reset()
 
 
