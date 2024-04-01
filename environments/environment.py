@@ -366,7 +366,7 @@ class PatentEnvironment(BaseEnvironment):
     def fill_inert_positions(self, smi):
         for isotope_num in list(set(find_isotope_mass_from_string(smi))):
             smi = smi.replace(str(isotope_num) + "He", "H")
-        return smi
+        return Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(smi)))
 
     def propagate_state(self, state, action):
         if state["smiles"] == "" or action.action_dict["smiles"] == "":
@@ -387,18 +387,16 @@ class PatentEnvironment(BaseEnvironment):
 
                 # This line is necessary to maintain symmetry of cores in pi-bridges
                 # First replace by some filler atomic num, and then later replace by pos1
-                action.action_dict["smiles"] = action.action_dict["smiles"].replace(
-                    str(other_pos) + "He", str(1000) + "He"
-                )
-
-            try:
-                next_state, action_group = action(state, pos1=pos1, pos2=pos2)
-            except:
-                print(state, pos1, pos2, action.action_dict)
-            if action.action_dict["group"] == "pi_bridge":
+                action_bridge = copy.deepcopy(action)
+                action_bridge.action_dict["smiles"] = action_bridge.action_dict[
+                    "smiles"
+                ].replace(str(other_pos) + "He", str(1000) + "He")
+                next_state, action_group = action_bridge(state, pos1=pos1, pos2=pos2)
                 next_state["smiles"] = next_state["smiles"].replace(
                     str(1000) + "He", str(pos1) + "He"
                 )
+            else:
+                next_state, action_group = action(state, pos1=pos1, pos2=pos2)
 
             if (
                 compute_molecular_mass(self.fill_inert_positions(next_state["smiles"]))
