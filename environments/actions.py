@@ -110,10 +110,14 @@ class DictAction(BaseAction):
 
     def __call__(self, state, **kwargs):
         action_group = self.action_dict["group"]
+        next_state = copy.deepcopy(state)
+
+        if action_group == "terminate_pi_bridge":
+            next_state["fragments"]["terminate_pi_bridge"] = 1
+            return next_state
 
         # State is root state and you choose first action
         if action_group == "core":
-            next_state = copy.deepcopy(state)
             next_state["smiles"] = self.action_dict["smiles"]
             next_state["fragments"][action_group].append(
                 self.get_identifier()["identifier"]

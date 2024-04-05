@@ -224,7 +224,7 @@ class Y6Environment(BaseEnvironment):
             next_state["next_action"] = "pi_bridge"
         elif key == "pi_bridge":
             if (len(next_state["fragments"]["pi_bridge"]) < 2) and (
-                next_state["terminate_pi_bridge"] == 0
+                next_state["fragments"]["terminate_pi_bridge"] == 0
             ):
                 next_state["next_action"] = "pi_bridge"
             else:
