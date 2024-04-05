@@ -55,9 +55,32 @@ class StringAction(BaseAction):
         new_smiles = callable_action(smiles)
         next_state["smiles"] = new_smiles
 
-        action_group = "core"
+        next_state["fragments"][self.get_identifier()["key"]].append(self.replaced_text)
 
-        return next_state, action_group
+        return next_state
+
+
+class ClusterAction(BaseAction):
+    def __init__(self, action_dict):
+        BaseAction.__init__(self)
+        self.action_dict = action_dict
+
+    def get_identifier(self):
+        identifier_dict = copy.deepcopy(self.action_dict)
+        identifier_dict["identifier"] = self.action_dict["index"]
+        identifier_dict["key"] = self.action_dict["group"]
+        return identifier_dict
+
+    def __call__(self, state, **kwargs):
+        action_group = self.action_dict["group"]
+        next_state = copy.deepcopy(state)
+        if action_group == "terminate_pi_bridge":
+            next_state["fragments"]["terminate_pi_bridge"] = 1
+        else:
+            next_state["fragments"][action_group].append(
+                self.get_identifier()["identifier"]
+            )
+        return next_state
 
 
 class DictAction(BaseAction):
@@ -88,16 +111,14 @@ class DictAction(BaseAction):
     def __call__(self, state, **kwargs):
         action_group = self.action_dict["group"]
 
-        # Action is empty action like pi_bridge
-        if self.action_dict["smiles"] == "":
-            next_state = copy.deepcopy(state)
-            return next_state, action_group
-
         # State is root state and you choose first action
-        if state["smiles"] == "":
+        if action_group == "core":
             next_state = copy.deepcopy(state)
             next_state["smiles"] = self.action_dict["smiles"]
-            return next_state, action_group
+            next_state["fragments"][action_group].append(
+                self.get_identifier()["identifier"]
+            )
+            return next_state
 
         pos1 = kwargs["pos1"]
         pos2 = kwargs["pos2"]
@@ -106,6 +127,8 @@ class DictAction(BaseAction):
 
         next_state = copy.deepcopy(state)
         next_state["smiles"] = new_smiles
-        action_group = self.action_dict["group"]
+        next_state["fragments"][action_group].append(
+            self.get_identifier()["identifier"]
+        )
 
-        return next_state, action_group
+        return next_state

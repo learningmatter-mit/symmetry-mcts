@@ -121,11 +121,9 @@ class MCTS:
 
         next_nodes = []
         for na in next_actions:
-            next_state, action_group = self.environment.propagate_state(curr_state, na)
+            next_state = self.environment.propagate_state(curr_state, na)
 
-            next_state = self.environment.process_next_state(
-                curr_state, next_state, action_group, na
-            )
+            next_state = self.environment.process_next_state(next_state, na)
             new_node = Tree_node(
                 next_state, self.C, node, self.environment.check_terminal(next_state)
             )
@@ -141,13 +139,9 @@ class MCTS:
             next_actions = self.environment.get_next_actions(state)
             move = np.random.randint(0, len(next_actions))
             next_action = next_actions[move]
-            next_state, action_group = self.environment.propagate_state(
-                state, next_action
-            )
+            next_state = self.environment.propagate_state(state, next_action)
 
-            next_state = self.environment.process_next_state(
-                state, next_state, action_group, next_action
-            )
+            next_state = self.environment.process_next_state(next_state, next_action)
             state = next_state
         return state
 
@@ -171,6 +165,10 @@ class MCTS:
 
         # simulation/roll_out
         final_state = self.roll_out(leaf_node)
+        if hasattr(self.environment, "postprocess_smiles"):
+            final_state["smiles"] = self.environment.postprocess_smiles(
+                final_state["smiles"]
+            )
         gap_reward, sim_reward, uncertainty = self.environment.get_reward(
             final_state["smiles"]
         )

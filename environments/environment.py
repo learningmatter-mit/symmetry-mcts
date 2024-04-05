@@ -19,7 +19,7 @@ from utils import (
     get_identity_reward,
     find_isotope_mass_from_string,
 )
-from environments.actions import StringAction, DictAction
+from environments.actions import StringAction, DictAction, ClusterAction
 
 
 # Function to generate Morgan fingerprints for a list of SMILES strings
@@ -111,22 +111,16 @@ class Y6Environment(BaseEnvironment):
         self.root_state = {
             "smiles": "c1([100He])c([101He])c2<pos2>c3c4c5n<pos0>nc5c6c7<pos2>c8c([101He])c([100He])<pos3>c8c7<pos1>c6c4<pos1>c3c2<pos3>1",
             "fragments": {
-                "pos0": "",
-                "pos1": "",
-                "pos2": "",
-                "pos3": "",
-                "pi_bridge_1": "",
-                "pi_bridge_2": "",
-                "end_group": "",
-                "side_chain": "",
+                "pos0": [],
+                "pos1": [],
+                "pos2": [],
+                "pos3": [],
+                "pi_bridge": [],
+                "end_group": [],
+                "side_chain": [],
+                "terminate_pi_bridge": 0,
             },
-            "group_counts": {
-                "core": 0,
-                "end_group": 0,
-                "side_chain": 0,
-                "pi_bridge": 0,
-                "pi_bridge_terminate": 0,
-            },
+            "next_action": "pos0",
         }
         self.empty_state = copy.deepcopy(self.root_state)
         self.empty_state["smiles"] = ""
@@ -160,6 +154,9 @@ class Y6Environment(BaseEnvironment):
                 self.end_groups.append(DictAction(mol))
             elif mol["group"] == "pi_bridge":
                 self.pi_bridges.append(DictAction(mol))
+        self.pi_bridges.append(
+            DictAction({"smiles": "", "group": "terminate_pi_bridge"})
+        )
 
     def get_string_actions(self, tp):
         new_actions = []
@@ -204,54 +201,43 @@ class Y6Environment(BaseEnvironment):
 
     def get_next_actions(self, state):
         if self.check_terminal(state):
-            new_actions = []
-        elif "pos0" in state["smiles"]:
-            new_actions = self.get_string_actions("pos0")
-        elif "pos1" in state["smiles"]:
-            new_actions = self.get_string_actions("pos1")
-        elif "pos2" in state["smiles"]:
-            new_actions = self.get_string_actions("pos2")
-        elif "pos3" in state["smiles"]:
-            new_actions = self.get_string_actions("pos3")
-        elif (
-            ("100He" in state["smiles"])
-            and (state["group_counts"]["pi_bridge"] < 2)
-            and (state["group_counts"]["pi_bridge_terminate"] == 0)
-        ):
-            new_actions = self.pi_bridges + [
-                DictAction({"smiles": "", "group": "pi_bridge_terminate"})
-            ]  # None is empty action i.e. no bridge. If this action is chosen, proceed to end groups as next action
-        elif "100He" in state["smiles"]:
-            new_actions = self.end_groups
-        elif any(pos in state["smiles"] for pos in ["101", "102", "103", "104", "105"]):
-            new_actions = self.side_chains
-        return new_actions
+            return []
+        elif "pos" in state["next_action"]:
+            return self.get_string_actions(state["next_action"])
+        elif state["next_action"] == "pi_bridge":
+            return self.pi_bridges
+        elif state["next_action"] == "end_group":
+            return self.end_groups
+        elif state["next_action"] == "side_chain":
+            return self.side_chains
 
-    def process_next_state(self, curr_state, next_state, action_group, next_action):
-        next_state_group = copy.deepcopy(curr_state["group_counts"])
-        next_state_group[action_group] += 1
-
-        next_state["group_counts"] = next_state_group
-
-        next_state_fragments = copy.deepcopy(curr_state["fragments"])
+    def process_next_state(self, next_state, next_action):
         key = next_action.get_identifier()["key"]
-        identifier = next_action.get_identifier()["identifier"]
 
-        if key.startswith("pos") or key == "end_group" or key == "side_chain":
-            next_state_fragments[key] = identifier
-            next_state["fragments"] = next_state_fragments
-        elif key.startswith("pi_bridge"):
-            num_occurrences = int(len(next_state_fragments["pi_bridge_1"]) != 0) + int(
-                len(next_state_fragments["pi_bridge_2"]) != 0
-            )
-            next_state_fragments[key + "_" + str(num_occurrences + 1)] = identifier
-            next_state["fragments"] = next_state_fragments
+        if key == "pos0":
+            next_state["next_action"] = "pos1"
+        elif key == "pos1":
+            next_state["next_action"] = "pos2"
+        elif key == "pos2":
+            next_state["next_action"] = "pos3"
+        elif key == "pos3":
+            next_state["next_action"] = "pi_bridge"
+        elif key == "pi_bridge":
+            if (len(next_state["fragments"]["pi_bridge"]) < 2) and (
+                next_state["terminate_pi_bridge"] == 0
+            ):
+                next_state["next_action"] = "pi_bridge"
+            else:
+                next_state["next_action"] = "end_group"
+        elif key == "end_group":
+            next_state["next_action"] = "side_chain"
+
         return next_state
 
     def propagate_state(self, state, action):
         pos1 = min(find_isotope_mass_from_string(state["smiles"]))
-        next_state, action_group = action(state, pos1=pos1, pos2=100)
-        return next_state, action_group
+        next_state = action(state, pos1=pos1, pos2=100)
+        return next_state
 
 
 class PatentEnvironment(BaseEnvironment):
@@ -259,18 +245,25 @@ class PatentEnvironment(BaseEnvironment):
         BaseEnvironment.__init__(self, reward_tp, output_dir, reduction)
         self.root_state = {
             "smiles": "",
-            "fragments": {"core": "", "pi_bridge_1": "", "end_group_1": ""},
-            "group_counts": {
-                "core": 0,
-                "pi_bridge": 0,
-                "end_group": 0,
-                "pi_bridge_terminate": 0,
-                "mmass_termination": 0,
+            "fragments": {
+                "core": [],
+                "pi_bridge": [],
+                "end_group": [],
+                "cluster_core": [],
+                "cluster_pi_bridge": [],
+                "cluster_end_group": [],
+                "terminate_pi_bridge": 0,
             },
+            "next_action": "cluster_core",
         }
         self.empty_state = copy.deepcopy(self.root_state)
         self.empty_state["smiles"] = ""
-        self.get_fragments("fragments/fragments_patents_with_Si.csv")
+        # self.get_fragments("fragments/fragments_patents_with_Si.csv")
+        self.get_fragments(
+            "fragments/cores_with_clusters.csv",
+            "fragments/bridges_with_clusters.csv",
+            "fragments/end_groups_with_clusters.csv",
+        )
         arguments = [
             "--test_path",
             "/dev/null",
@@ -282,84 +275,108 @@ class PatentEnvironment(BaseEnvironment):
         self.args = chemprop.args.PredictArgs().parse_args(arguments)
         self.model_objects = chemprop.train.load_model(args=self.args)
 
+    def check_terminal(self, state):
+        if state["smiles"] == "":
+            return 0
+        if ("He" not in state["smiles"]) or compute_molecular_mass(
+            self.fill_inert_positions(state["smiles"])
+        ) >= 1500:
+            return 1
+        return 0
+
     def reset(self):
         # Nothing to reset
         pass
 
-    def get_fragments(self, csv_path):
-        df = pd.read_csv(csv_path)
-        self.cores = []
-        self.end_groups = []
+    def get_fragments(self, cores_path, bridges_path, end_groups_path):
+        df_cores = pd.read_csv(cores_path)
+        df_bridges = pd.read_csv(bridges_path)
+        df_end_groups = pd.read_csv(end_groups_path)
 
-        self.cores = []
-        for mol in df.loc[
-            (df["num_positions"] > 1) & (df["num_positions"] < 6), "fragments"
-        ].values:
-            try:
-                self.cores.append(DictAction({"smiles": mol, "group": "core"}))
-            except Exception as e:
-                print(f"Error creating DictAction for {mol}: {e}")
+        dfs = {"core": df_cores, "pi_bridge": df_bridges, "end_group": df_end_groups}
 
-        self.pi_bridges = []
-        for mol in df.loc[(df["num_positions"] == 2), "fragments"].values:
-            if len(set(find_isotope_mass_from_string(mol))) != 2:
-                continue
-            try:
-                self.pi_bridges.append(
-                    DictAction({"smiles": mol, "group": "pi_bridge"})
-                )
-            except Exception as e:
-                print(f"Error creating DictAction for {mol}: {e}")
+        # Map cluster numbers to list of allowed fragments
+        self.cluster_to_frag = {"core": {}, "pi_bridge": {}, "end_group": {}}
+        for frag_tp in self.cluster_to_frag.keys():
+            num_pos = dfs[frag_tp]["cluster"]
+            for i, frag in enumerate(dfs[frag_tp]["fragments"]):
+                cluster_idx = num_pos[i]
+                if cluster_idx not in self.cluster_to_frag[frag_tp]:
+                    self.cluster_to_frag[frag_tp][cluster_idx] = [
+                        DictAction({"smiles": frag, "group": frag_tp})
+                    ]
+                else:
+                    self.cluster_to_frag[frag_tp][cluster_idx].append(
+                        DictAction({"smiles": frag, "group": frag_tp})
+                    )
 
-        self.end_groups = []
-        for mol in df.loc[df["num_positions"] == 1, "fragments"].values:
-            try:
-                self.end_groups.append(
-                    DictAction({"smiles": mol, "group": "end_group"})
-                )
-            except Exception as e:
-                print(f"Error creating DictAction for {mol}: {e}")
+        # List of allowed cluster indices
+        self.clusters = {}
+        for frag_tp in self.cluster_to_frag.keys():
+            if frag_tp == "pi_bridge":  # Add terminal action in pi_bridge case
+                self.clusters["cluster_" + frag_tp] = [
+                    ClusterAction({"index": i, "group": "cluster_" + frag_tp})
+                    for i in range(100)
+                ] + [ClusterAction({"index": -1, "group": "terminate_pi_bridge"})]
+            self.clusters["cluster_" + frag_tp] = [
+                ClusterAction({"index": i, "group": "cluster_" + frag_tp})
+                for i in range(100)
+            ]
+
+    def postprocess_smiles(self, smiles):
+        return self.fill_inert_positions(smiles)
 
     def get_next_actions(self, state):
+        # If terminal state, then return empty action set
         if self.check_terminal(state):
-            new_actions = []
-        elif state["smiles"] == "":
-            new_actions = self.cores
-        elif (
-            ("He" in state["smiles"])
-            and (state["group_counts"]["pi_bridge"] < 2)
-            and (state["group_counts"]["pi_bridge_terminate"] == 0)
-        ):
-            new_actions = self.pi_bridges + [
-                DictAction({"smiles": "", "group": "pi_bridge_terminate"})
-            ]  # None is empty action i.e. no bridge. If this action is chosen, proceed to end groups as next action
-        elif "He" in state["smiles"]:
-            new_actions = self.end_groups
-        return new_actions
+            return []
 
-    def process_next_state(self, curr_state, next_state, action_group, next_action):
-        next_state_group = copy.deepcopy(curr_state["group_counts"])
-        next_state_group[action_group] += 1
-        next_state["group_counts"] = next_state_group
+        elif state["next_action"].startswith("cluster"):
+            return self.clusters[state["next_action"]]
+        else:
+            try:
+                self.cluster_to_frag[state["next_action"]][
+                    state["fragments"]["cluster_" + state["next_action"]][-1]
+                ]
+            except:
+                import pdb
 
-        next_state_fragments = copy.deepcopy(curr_state["fragments"])
+                pdb.set_trace()
+            return self.cluster_to_frag[state["next_action"]][
+                state["fragments"]["cluster_" + state["next_action"]][-1]
+            ]
+
+    def process_next_state(self, next_state, next_action):
         key = next_action.get_identifier()["key"]
-        identifier = next_action.get_identifier()["identifier"]
 
-        if key.startswith("core"):
-            next_state_fragments[key] = identifier
-            next_state["fragments"] = next_state_fragments
-        elif key.startswith("pi_bridge"):
-            num_occurrences = 0
-            for k in next_state_fragments.keys():
-                if k.startswith("pi_bridge"):
-                    num_occurrences += int(len(next_state_fragments[k]) != 0)
-            next_state_fragments[key + "_" + str(num_occurrences + 1)] = identifier
-            next_state["fragments"] = next_state_fragments
-        elif key.startswith("end_group"):
-            num_occurrences = int(len(next_state_fragments["end_group_1"]) != 0)
-            next_state_fragments[key + "_" + str(num_occurrences + 1)] = identifier
-            next_state["fragments"] = next_state_fragments
+        # Tag state with identity of next action choice to make it easy
+        # during action selection
+        if key == "cluster_core":
+            next_state["next_action"] = "core"
+
+        elif key == "core":
+            next_state["next_action"] = "cluster_pi_bridge"
+
+        elif key == "cluster_pi_bridge":
+            next_state["next_action"] = "pi_bridge"
+
+        elif key == "terminate_pi_bridge":
+            next_state["next_action"] = "cluster_end_group"
+
+        elif key == "pi_bridge":
+            if (len(next_state["fragments"]["pi_bridge"]) < 2) and (
+                next_state["fragments"]["terminate_pi_bridge"] == 0
+            ):
+                next_state["next_action"] = "cluster_pi_bridge"
+            else:
+                next_state["next_action"] = "cluster_end_group"
+
+        elif key == "cluster_end_group":
+            next_state["next_action"] = "end_group"
+
+        elif key == "end_group":
+            if "He" in next_state["smiles"]:
+                next_state["next_action"] = "cluster_end_group"
 
         return next_state
 
@@ -369,12 +386,17 @@ class PatentEnvironment(BaseEnvironment):
         return Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(smi)))
 
     def propagate_state(self, state, action):
-        if state["smiles"] == "" or action.action_dict["smiles"] == "":
-            next_state, action_group = action(state)
+        if action.action_dict["group"] == "core" or isinstance(action, ClusterAction):
+            next_state = action(state)
         else:
-            pos1 = random.choice(
-                list(set(find_isotope_mass_from_string(state["smiles"])))
-            )
+            try:
+                pos1 = random.choice(
+                    list(set(find_isotope_mass_from_string(state["smiles"])))
+                )
+            except:
+                import pdb
+
+                pdb.set_trace()
 
             action_positions = list(
                 set(find_isotope_mass_from_string(action.action_dict["smiles"]))
@@ -391,20 +413,11 @@ class PatentEnvironment(BaseEnvironment):
                 action_bridge.action_dict["smiles"] = action_bridge.action_dict[
                     "smiles"
                 ].replace(str(other_pos) + "He", str(1000) + "He")
-                next_state, action_group = action_bridge(state, pos1=pos1, pos2=pos2)
+                next_state = action_bridge(state, pos1=pos1, pos2=pos2)
                 next_state["smiles"] = next_state["smiles"].replace(
                     str(1000) + "He", str(pos1) + "He"
                 )
             else:
-                next_state, action_group = action(state, pos1=pos1, pos2=pos2)
+                next_state = action(state, pos1=pos1, pos2=pos2)
 
-            if (
-                compute_molecular_mass(self.fill_inert_positions(next_state["smiles"]))
-                > 2000
-            ):
-                print("Early termination!")
-                next_state = copy.deepcopy(state)
-                next_state["smiles"] = self.fill_inert_positions(next_state["smiles"])
-                action_group = "mmass_termination"
-
-        return next_state, action_group
+        return next_state
