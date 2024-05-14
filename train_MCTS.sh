@@ -14,4 +14,5 @@ source activate chemprop_train
 
 output_dir="$1"
 iter="$2"
-python train_mcts.py --output_dir "${output_dir}" --iter "${iter}" --environment "y6"
+environment="$3"
+python train_mcts.py --output_dir "${output_dir}" --iter "${iter}" --environment "${environment}"

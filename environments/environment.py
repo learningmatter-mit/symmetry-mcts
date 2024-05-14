@@ -18,6 +18,7 @@ from utils import (
     compute_molecular_mass,
     get_identity_reward,
     find_isotope_mass_from_string,
+    check_smiles_validity,
 )
 from environments.actions import StringAction, DictAction, ClusterAction
 
@@ -132,7 +133,7 @@ class Y6Environment(BaseEnvironment):
             "--preds_path",
             "/dev/null",
             "--checkpoint_dir",
-            "train_chemprop/chemprop_weights",
+            "train_chemprop/chemprop_weights_y6",
         ]
         self.args = chemprop.args.PredictArgs().parse_args(arguments)
         self.model_objects = chemprop.train.load_model(args=self.args)
@@ -191,7 +192,7 @@ class Y6Environment(BaseEnvironment):
         elif tp == "pos3":
             new_actions = [
                 StringAction("<pos3>", "nc", asymmetric=True),
-                StringAction("<pos2>", "cn", asymmetric=True),
+                StringAction("<pos3>", "cn", asymmetric=True),
                 StringAction("<pos3>", "cc"),
                 StringAction("<pos3>", "n([105He])"),
                 StringAction("<pos3>", "s"),
@@ -275,13 +276,22 @@ class PatentEnvironment(BaseEnvironment):
         self.args = chemprop.args.PredictArgs().parse_args(arguments)
         self.model_objects = chemprop.train.load_model(args=self.args)
 
+    def getnumheavyatoms(self, smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        return mol.GetNumHeavyAtoms()
+
     def check_terminal(self, state):
         if state["smiles"] == "":
             return 0
-        if ("He" not in state["smiles"]) or compute_molecular_mass(
-            self.fill_inert_positions(state["smiles"])
-        ) >= 1500:
+
+        if not check_smiles_validity(state["smiles"]):
             return 1
+
+        if ("He" not in state["smiles"]) or self.getnumheavyatoms(
+            state["smiles"]
+        ) >= 100:
+            return 1
+
         return 0
 
     def reset(self):
@@ -334,14 +344,6 @@ class PatentEnvironment(BaseEnvironment):
         elif state["next_action"].startswith("cluster"):
             return self.clusters[state["next_action"]]
         else:
-            try:
-                self.cluster_to_frag[state["next_action"]][
-                    state["fragments"]["cluster_" + state["next_action"]][-1]
-                ]
-            except:
-                import pdb
-
-                pdb.set_trace()
             return self.cluster_to_frag[state["next_action"]][
                 state["fragments"]["cluster_" + state["next_action"]][-1]
             ]
@@ -381,22 +383,18 @@ class PatentEnvironment(BaseEnvironment):
         return next_state
 
     def fill_inert_positions(self, smi):
+        smi_edited = smi
         for isotope_num in list(set(find_isotope_mass_from_string(smi))):
-            smi = smi.replace(str(isotope_num) + "He", "H")
-        return Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(smi)))
+            smi_edited = smi_edited.replace(str(isotope_num) + "He", "H")
+        return Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(smi_edited)))
 
     def propagate_state(self, state, action):
         if action.action_dict["group"] == "core" or isinstance(action, ClusterAction):
             next_state = action(state)
         else:
-            try:
-                pos1 = random.choice(
-                    list(set(find_isotope_mass_from_string(state["smiles"])))
-                )
-            except:
-                import pdb
-
-                pdb.set_trace()
+            pos1 = random.choice(
+                list(set(find_isotope_mass_from_string(state["smiles"])))
+            )
 
             action_positions = list(
                 set(find_isotope_mass_from_string(action.action_dict["smiles"]))

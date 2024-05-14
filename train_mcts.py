@@ -6,7 +6,7 @@ import pandas as pd
 import copy
 import json
 import argparse
-import pstats
+import pickle
 
 # from chemprop.predict_one import predict_one
 from torch.utils.tensorboard import SummaryWriter
@@ -16,7 +16,7 @@ from utils import (
     get_num_atoms_by_id,
     set_all_seeds,
     get_total_reward,
-    get_normalized_rewards,
+    check_smiles_validity,
 )
 from environments.factory import factory
 from tree_node import Tree_node
@@ -151,6 +151,14 @@ class MCTS:
         if node.parent != None:
             self.backprop(node.parent, rw)
 
+    def save_tree(self, filename):
+        with open(filename, "wb") as f:
+            pickle.dump(self.root, f)
+
+    def load_tree(self, filename):
+        with open(filename, "rb") as f:
+            self.root = pickle.load(f)
+
     def run_sim(self, num):
         print("Iteration: ", num)
         # selection
@@ -165,13 +173,18 @@ class MCTS:
 
         # simulation/roll_out
         final_state = self.roll_out(leaf_node)
-        if hasattr(self.environment, "postprocess_smiles"):
-            final_state["smiles"] = self.environment.postprocess_smiles(
+
+        if not check_smiles_validity(final_state["smiles"]):
+            gap_reward, sim_reward, uncertainty = float("inf"), float("inf"), 0.0
+        else:
+            if hasattr(self.environment, "postprocess_smiles"):
+                final_state["smiles"] = self.environment.postprocess_smiles(
+                    final_state["smiles"]
+                )
+            gap_reward, sim_reward, uncertainty = self.environment.get_reward(
                 final_state["smiles"]
             )
-        gap_reward, sim_reward, uncertainty = self.environment.get_reward(
-            final_state["smiles"]
-        )
+
         if os.path.exists(os.path.join(args.output_dir, "fingerprints.npy")):
             reward = get_total_reward(
                 gap_reward, sim_reward, train_params, reduction=self.reduction
@@ -197,10 +210,10 @@ class MCTS:
             print("Done Loading")
 
         for i in range(self.num_sims):
-            try:
-                current_reward = self.run_sim(i)
-            except:
-                print("Failed! Skipping iteration")
+            # try:
+            current_reward = self.run_sim(i)
+            # except:
+            #     print("Failed! Skipping iteration")
             self.environment.reset()
 
 
@@ -241,8 +254,10 @@ if __name__ == "__main__":
     new_sim = MCTS(
         train_params["C"],
         environment=environment,
+        exploration=train_params["exploration"],
         num_sims=train_params["num_sims"],
         reward_tp=train_params["reward"],
         reduction=train_params["reduction"],
     )
     new_sim.run()
+    new_sim.save_tree(os.path.join(iter_dir, fname_params["root_node_fname"]))

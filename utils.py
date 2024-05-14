@@ -20,6 +20,12 @@ def set_all_seeds(seed):
     torch.backends.cudnn.deterministic = True
 
 
+def check_smiles_validity(smi):
+    if Chem.MolFromSmiles(smi):
+        return True
+    return False
+
+
 def find_isotope_mass_from_string(smi):
     return [int(mass) for mass in re.findall(r"\[(\d+)He\]", smi)]
 

@@ -20,17 +20,13 @@ class FragmentDecomp:
         self.fragments_set = set()
         self.smiles = smiles
         self.reactant_smarts = "[*&R1:1]!@;-[*&!He&R0,*&R1:2]"
-        # self.reactant_smarts = '[a:1]!@;-[A&!He&R0,a:2]'
-        # self.reactant_smarts = '[a:1]!@[A&!He&R0,a:2]'
-        # self.reactant_smarts = '[a:1]-[A&!He&R0,a:2]'
+        # self.reactant_smarts = "[*&R1:1]!@;-[*&R1:2]"
         self.mapper_dict, self.mapper_dict_inverse = self.map_unique_fragments(
             self.smiles
         )
 
     def fill_inert_positions(self, smi, fragments_tuple_list):
         mol = Chem.MolFromSmiles(smi)
-        # if mol == None:
-        #     print(smi)
         for frag_smi, isotope_number in fragments_tuple_list:
             reaction_smarts = "[*:1][{}He].[*:2][{}He]>>[*:1]-[*:2]".format(
                 isotope_number, isotope_number
@@ -80,7 +76,6 @@ class FragmentDecomp:
         fragments = list(self._get_fragments(self.smiles))
         canon_fragments = []
         for frag in fragments:
-            # canon_fragments.append(frag)
             canon_fragments.append(Chem.CanonSmiles(frag))
 
         for i, frag in enumerate(canon_fragments):
