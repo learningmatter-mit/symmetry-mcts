@@ -8,8 +8,6 @@ import torch
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
-# from MCTS_y6 import normalization_params
-
 
 def set_all_seeds(seed):
     random.seed(seed)
@@ -57,6 +55,19 @@ def sigmoid(x):
 
 
 def get_identity_reward(reduction):
+    """
+    Returns the identity element for a given reduction operation.
+
+    Parameters:
+    reduction (str): The type of reduction operation. 
+                     Supported values are "sum", "product", and "min".
+
+    Returns:
+    int or float: The identity element for the specified reduction operation.
+                  - For "sum", returns 0.
+                  - For "product", returns 1.
+                  - For "min", returns positive infinity.
+    """
     if reduction == "sum":
         return 0
     elif reduction == "product":
@@ -65,24 +76,22 @@ def get_identity_reward(reduction):
         return float("inf")
 
 
-# def get_unnorm_rewards(gap_reward_norm, sim_reward_norm):
-#     gap_reward_unnorm = gap_reward_norm * normalization_params['bandgap']['std_dev'] + normalization_params['bandgap']['mean']
-#     sim_reward_unnorm = sim_reward_norm * normalization_params['similarity']['std_dev'] + normalization_params['similarity']['mean']
-#     return gap_reward_unnorm, sim_reward_unnorm
-
-
-def get_normalized_rewards(gap_reward, sim_reward, normalization_params):
-    std_gap_reward = (
-        gap_reward - normalization_params["bandgap"]["mean"]
-    ) / normalization_params["bandgap"]["std_dev"]
-    std_sim_reward = (
-        sim_reward - normalization_params["similarity"]["mean"]
-    ) / normalization_params["similarity"]["std_dev"]
-    # return sigmoid(std_gap_reward), sigmoid(std_sim_reward)
-    return std_gap_reward, std_sim_reward
-
-
 def get_total_reward(gap_reward, sim_reward, train_params, reduction="sum"):
+    """
+    Calculate the total reward based on the given gap reward, similarity reward, 
+    and training parameters.
+
+    Args:
+        gap_reward (float): The reward associated with the bandgap.
+        sim_reward (float): The reward associated with the similarity.
+        train_params (dict): A dictionary containing training parameters, 
+                             specifically the weights for summing the rewards.
+        reduction (str, optional): The method to reduce the rewards. 
+                                   Can be "sum" or "product". Defaults to "sum".
+
+    Returns:
+        float: The total reward calculated based on the specified reduction method.
+    """
     if reduction == "sum":
         return -1 * (
             train_params["sum_weights"]["bandgap"] * gap_reward
@@ -90,13 +99,3 @@ def get_total_reward(gap_reward, sim_reward, train_params, reduction="sum"):
         )
     elif reduction == "product":
         return -1 * gap_reward * sim_reward
-
-
-# def get_total_reward(gap_reward, sim_reward, train_params, normalization_params, reduction='sum'):
-#     normalized_gap_reward, normalized_sim_reward = get_normalized_rewards(gap_reward, sim_reward, normalization_params)
-#     if reduction == 'sum':
-#         return train_params['sum_weights']['bandgap'] * (1 - normalized_gap_reward) + train_params['sum_weights']['similarity'] * (1 - normalized_sim_reward)
-#     elif reduction == 'product':
-#         return (1 - normalized_gap_reward) * (1 - normalized_sim_reward)
-#     elif reduction == 'min':
-#         return min(1 - normalized_gap_reward, 1 - normalized_sim_reward)

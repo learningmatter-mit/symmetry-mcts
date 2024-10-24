@@ -18,6 +18,16 @@ def num_sites_from_pos(smi, pos):
 
 
 def uniquify(original_list):
+    """
+    Remove duplicates from the original list while preserving the order of elements.
+
+    Args:
+        original_list (list): The list from which duplicates need to be removed.
+
+    Returns:
+        list: A new list containing only unique elements from the original list, 
+              in the order they first appeared.
+    """
     unique_list = []
     seen = set()
 
@@ -29,6 +39,19 @@ def uniquify(original_list):
 
 
 def reduce_to_lowest_form(smi):
+    """
+    Reduces a given SMILES string to its canonical form with isotopic masses replaced by a standardized range.
+
+    This function takes a SMILES string, converts it to its canonical form, identifies unique isotopic masses,
+    and replaces them with a new set of masses starting from 100. The length of the new masses list is ensured
+    to be the same as the original unique masses list.
+
+    Args:
+        smi (str): The input SMILES string.
+
+    Returns:
+        str: The canonical SMILES string with isotopic masses replaced by a standardized range.
+    """
     canon_smi = Chem.CanonSmiles(smi)
     masses = uniquify(find_isotope_mass_from_string(canon_smi))
     new_masses = list(range(100, 100 + len(masses)))
@@ -39,6 +62,18 @@ def reduce_to_lowest_form(smi):
 
 
 def run(smi1, smi2, pos1, pos2):
+    """
+    Executes a chemical reaction between two molecules specified by their SMILES strings and positions.
+
+    Args:
+        smi1 (str): SMILES string of the first molecule.
+        smi2 (str): SMILES string of the second molecule.
+        pos1 (str): Position identifier for the reactive site on the first molecule.
+        pos2 (str): Position identifier for the reactive site on the second molecule.
+
+    Returns:
+        str: SMILES string of the product molecule after the reaction.
+    """
     reaction_smarts = "[*:1][{}He].[*:2][{}He]>>[*:1]-[*:2]".format(pos1, pos2)
     rxn = AllChem.ReactionFromSmarts(reaction_smarts)
     mol2 = Chem.MolFromSmiles(smi2)

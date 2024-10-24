@@ -1,19 +1,3 @@
-# import pandas as pd
-# from rdkit import Chem
-
-
-# df = pd.read_csv('patent_opd.csv')
-# df_smiles = list(df.smiles)
-# valid_smiles = []
-# for smi in df_smiles:
-#     mol = Chem.MolFromSmiles(smi)
-#     if mol != None:
-#         Chem.RemoveStereochemistry(mol)
-#         valid_smiles.append(Chem.MolToSmiles(mol))
-#     else:
-#         print("Skipping")
-# df_new = pd.DataFrame({'smiles': valid_smiles})
-# df_new.to_csv('valid_smiles_patent_opd.csv', index=False)
 import pandas as pd
 from rdkit import Chem
 
@@ -23,6 +7,25 @@ valid_smiles = []
 
 
 def filter_molecules(smiles):
+    """
+    Filters molecules based on specific criteria and returns a valid SMILES string if all criteria are met.
+
+    Args:
+        smiles (str): The SMILES string representing the molecule to be filtered.
+
+    Returns:
+        str or None: The filtered SMILES string if the molecule meets all criteria, otherwise None.
+
+    Criteria:
+        - The molecule must contain only the following atoms: C, O, N, H, Cl, Br, S, F, I, Si.
+        - The molecule must not contain the problematic atom representation "[O]".
+        - The molecule must contain at least one aromatic ring.
+        - Stereochemistry information is removed from the molecule.
+
+    Notes:
+        - If the molecule does not meet any of the criteria, a message is printed indicating the reason for removal.
+        - If the SMILES string is invalid, a message is printed indicating the invalidity.
+    """
     mol = Chem.MolFromSmiles(smiles)
     if mol is not None:
         # Check for atoms other than C, O, N, H, Cl, Br, S, F, I

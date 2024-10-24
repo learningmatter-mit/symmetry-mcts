@@ -115,14 +115,3 @@ for tp in ["cores", "bridges", "end_groups"]:
     cores_df = cores_df.sort_values(by="cluster", ascending=True)
 
     cores_df.to_csv("{}_with_clusters.csv".format(tp), index=False)
-
-# print(mol_dict_new, type(mol_dict_new))
-# with open("core-fxn+cap_clustered.json", "w") as f:
-#     json.dump(mol_dict_new, f)
-# for i in range(50):
-#     print((kmeans == [i]*len(kmeans)).sum())
-
-
-# print(kmeans.labels_)
-
-# print((kmeans.labels_ == [0]*len(kmeans.labels_)).sum())

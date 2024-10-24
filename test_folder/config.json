@@ -1,0 +1,4 @@
+{
+    "fname_params": {"tb_fname": "runs", "molecules_fname": "molecules.csv", "action_history_fname": "action_history.csv", "fingerprints_fname": "fingerprints.npy"},
+    "train_params": {"C": 0.53, "exploration": "UCB", "num_sims": 5000, "reward": "tanimoto_bandgap", "reduction": "sum", "sum_weights": {"bandgap": 1, "similarity": 6.5}}
+}

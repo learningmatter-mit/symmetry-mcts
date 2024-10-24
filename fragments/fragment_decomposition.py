@@ -16,6 +16,37 @@ from utils import find_isotope_mass_from_string
 
 
 class FragmentDecomp:
+    """
+    A class used to decompose chemical structures into fragments using SMILES notation.
+
+    Attributes
+    ----------
+    fragments_set : set
+        A set to store unique fragments.
+    smiles : str
+        The SMILES string of the molecule to be decomposed.
+    reactant_smarts : str
+        The SMARTS pattern used for the decomposition reaction.
+    mapper_dict : dict
+        A dictionary mapping canonical SMILES to unique isotope masses.
+    mapper_dict_inverse : dict
+        A dictionary mapping unique isotope masses to canonical SMILES with isotopes.
+
+    Methods
+    -------
+    fill_inert_positions(smi, fragments_tuple_list)
+        Fills inert positions in the molecule with specified fragments.
+    run_decomposition_reaction(smiles, dummy1="Ne", dummy2="Ne")
+        Runs the decomposition reaction on the given SMILES string.
+    map_unique_fragments(smiles)
+        Maps unique fragments from the decomposition reaction to isotope masses.
+    uniquify(original_list)
+        Returns a list of unique items from the original list.
+    get_fragments()
+        Returns a set of canonical SMILES strings of the fragments.
+    _get_fragments(smiles, memo={})
+        Recursively decomposes the molecule and returns a set of fragments.
+    """
     def __init__(self, smiles):
         self.fragments_set = set()
         self.smiles = smiles
@@ -26,6 +57,18 @@ class FragmentDecomp:
         )
 
     def fill_inert_positions(self, smi, fragments_tuple_list):
+        """
+        Fills inert positions in a molecule with fragments based on the provided isotope numbers.
+
+        Args:
+            smi (str): The SMILES string of the molecule.
+            fragments_tuple_list (list of tuples): A list of tuples where each tuple contains:
+                - frag_smi (str): The SMILES string of the fragment.
+                - isotope_number (int): The isotope number used to identify the inert positions.
+
+        Returns:
+            str: The SMILES string of the modified molecule with inert positions filled.
+        """
         mol = Chem.MolFromSmiles(smi)
         for frag_smi, isotope_number in fragments_tuple_list:
             reaction_smarts = "[*:1][{}He].[*:2][{}He]>>[*:1]-[*:2]".format(
@@ -38,6 +81,17 @@ class FragmentDecomp:
         return Chem.MolToSmiles(mol)
 
     def run_decomposition_reaction(self, smiles, dummy1="Ne", dummy2="Ne"):
+        """
+        Executes a decomposition reaction on a given SMILES string using specified dummy atoms.
+
+        Args:
+            smiles (str): The SMILES string of the molecule to decompose.
+            dummy1 (str, optional): The first dummy atom to use in the reaction. Defaults to "Ne".
+            dummy2 (str, optional): The second dummy atom to use in the reaction. Defaults to "Ne".
+
+        Returns:
+            tuple: A tuple containing the products of the reaction as RDKit molecule objects.
+        """
         reaction_smarts = "{}>>[*:1][{}].[*:2][{}]".format(
             self.reactant_smarts, dummy1, dummy2
         )
@@ -47,6 +101,24 @@ class FragmentDecomp:
         return products
 
     def map_unique_fragments(self, smiles):
+        """
+        Maps unique fragments from the given SMILES string to unique isotope masses.
+
+        This method performs a decomposition reaction on the input SMILES string and
+        assigns unique isotope masses to each unique fragment produced. It returns
+        two dictionaries: one mapping the canonical SMILES of each fragment to its
+        assigned isotope mass, and another mapping the isotope mass back to a modified
+        canonical SMILES string where "Ne" is replaced with the isotope mass followed
+        by "He".
+
+        Args:
+            smiles (str): The input SMILES string representing the molecule to be decomposed.
+
+        Returns:
+            tuple: A tuple containing two dictionaries:
+                - mapper_dict (dict): A dictionary mapping canonical SMILES strings of fragments to unique isotope masses.
+                - mapper_dict_inverse (dict): A dictionary mapping isotope masses to modified canonical SMILES strings.
+        """
         products = self.run_decomposition_reaction(smiles)
         mapper_dict = {}
         mapper_dict_inverse = {}
@@ -63,6 +135,15 @@ class FragmentDecomp:
         return mapper_dict, mapper_dict_inverse
 
     def uniquify(self, original_list):
+        """
+        Remove duplicates from the original list while preserving the order.
+
+        Args:
+            original_list (list): The list from which duplicates need to be removed.
+
+        Returns:
+            list: A new list with duplicates removed, preserving the original order.
+        """
         unique_list = []
         seen = set()
 
@@ -73,6 +154,15 @@ class FragmentDecomp:
         return unique_list
 
     def get_fragments(self):
+        """
+        Extracts and canonicalizes fragments from a SMILES string.
+
+        This method retrieves fragments from the SMILES string associated with the instance,
+        canonicalizes them, and then replaces isotope masses with a new range of masses.
+
+        Returns:
+            set: A set of canonicalized fragment SMILES strings with updated isotope masses.
+        """
         fragments = list(self._get_fragments(self.smiles))
         canon_fragments = []
         for frag in fragments:
@@ -89,6 +179,23 @@ class FragmentDecomp:
         return set(canon_fragments)
 
     def _get_fragments(self, smiles, memo={}):
+        """
+        Decompose a given SMILES string into its fragments and store them in a set.
+
+        This method performs a decomposition reaction on the input SMILES string and processes
+        the resulting fragments. It handles isotopic masses and fills inert positions in the
+        fragments. The fragments are then checked against a reactant SMARTS pattern, and if
+        they match, the method is called recursively on the new fragments. The resulting
+        fragments are stored in a set and memoized for future use.
+
+        Args:
+            smiles (str): The SMILES string to be decomposed.
+            memo (dict, optional): A dictionary for memoization to store previously computed
+                                   fragments. Defaults to an empty dictionary.
+
+        Returns:
+            set: A set of decomposed fragment SMILES strings.
+        """
         if smiles in memo:
             return memo[smiles]
 
@@ -128,6 +235,15 @@ class FragmentDecomp:
 
 
 def driver(smi):
+    """
+    Decomposes a given SMILES string into its constituent fragments.
+
+    Args:
+        smi (str): A SMILES (Simplified Molecular Input Line Entry System) string representing a molecule.
+
+    Returns:
+        list or None: A list of fragments if decomposition is successful, otherwise None.
+    """
     canon_smi = Chem.CanonSmiles(smi)
     frag_obj = FragmentDecomp(canon_smi)
     try:
@@ -168,17 +284,6 @@ if __name__ == "__main__":
     num_positions = []
     for frag in fragments:
         num_positions.append(len(find_isotope_mass_from_string(frag)))
-
-    # for i, smi in tqdm(enumerate(patent_smiles), total=len(patent_smiles)):
-    #     canon_smi = Chem.CanonSmiles(smi)
-    #     frag_obj = FragmentDecomp(canon_smi)
-    #     try:
-    #         frags = frag_obj.get_fragments()
-    #     except:
-    #         print("Skipping: ", smi)
-    #         # import pdb; pdb.set_trace()
-    #         continue
-    #     fragments = fragments.union(frags)
 
     df_frags = pd.DataFrame(
         {"fragments": list(fragments), "num_positions": list(num_positions)}

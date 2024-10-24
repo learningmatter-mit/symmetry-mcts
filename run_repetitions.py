@@ -8,19 +8,6 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-# from sbatchpy import run
-# # from MCTS_y6 import fname_params
-
-# config = {
-#     "job-name": "train_mcts",
-#     "partition": "xeon-p8",
-#     "output": "train_mcts-%j.out",
-#     "nodes": "1",
-#     "ntasks-per-node": "20",
-#     "cpus-per-task": "1",
-#     "time": "96:00:00"
-# }
-
 SCRIPT_NAME = "train_MCTS.sh"
 LAST_N = 100
 OUTPUT_DIR = "test_folder"
