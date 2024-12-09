@@ -1,6 +1,6 @@
 import sys
 
-sys.path.insert(0, "/home/gridsan/sakshay/MCTS_paper_code/molMCTS")
+sys.path.insert(0, "/home/gridsan/sakshay/molMCTS")
 from sklearn.cluster import KMeans
 import numpy as np
 import json
@@ -11,7 +11,7 @@ from rdkit.Chem import rdMolDescriptors as rdmd
 from utils import find_isotope_mass_from_string
 
 
-df = pd.read_csv("fragments_patents_with_Si.csv")
+df = pd.read_csv("fragments_patents.csv")
 
 
 def is_valid_smiles(smiles):

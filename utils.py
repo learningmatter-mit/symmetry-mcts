@@ -55,19 +55,6 @@ def sigmoid(x):
 
 
 def get_identity_reward(reduction):
-    """
-    Returns the identity element for a given reduction operation.
-
-    Parameters:
-    reduction (str): The type of reduction operation. 
-                     Supported values are "sum", "product", and "min".
-
-    Returns:
-    int or float: The identity element for the specified reduction operation.
-                  - For "sum", returns 0.
-                  - For "product", returns 1.
-                  - For "min", returns positive infinity.
-    """
     if reduction == "sum":
         return 0
     elif reduction == "product":
@@ -77,21 +64,6 @@ def get_identity_reward(reduction):
 
 
 def get_total_reward(gap_reward, sim_reward, train_params, reduction="sum"):
-    """
-    Calculate the total reward based on the given gap reward, similarity reward, 
-    and training parameters.
-
-    Args:
-        gap_reward (float): The reward associated with the bandgap.
-        sim_reward (float): The reward associated with the similarity.
-        train_params (dict): A dictionary containing training parameters, 
-                             specifically the weights for summing the rewards.
-        reduction (str, optional): The method to reduce the rewards. 
-                                   Can be "sum" or "product". Defaults to "sum".
-
-    Returns:
-        float: The total reward calculated based on the specified reduction method.
-    """
     if reduction == "sum":
         return -1 * (
             train_params["sum_weights"]["bandgap"] * gap_reward

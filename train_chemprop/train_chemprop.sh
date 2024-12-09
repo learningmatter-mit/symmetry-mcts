@@ -10,6 +10,6 @@
 #SBATCH --error=chemprop.err
 
 module load anaconda/2023a
-conda activate chemprop_train
+source activate chemprop_train
 
 python fetch_data_and_train_chemprop.py
