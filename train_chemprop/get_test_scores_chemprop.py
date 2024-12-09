@@ -1,5 +1,3 @@
-"""Trains a chemprop model on a dataset by doing domain classification followed by regression with re-weighting."""
-
 import os, sys
 
 filepath = os.path.realpath(__file__)
@@ -37,7 +35,7 @@ def predict(arguments):
 if __name__ == "__main__":
     # retrieve index of training folder
     parser = argparse.ArgumentParser(
-        description="driver code for posthoc filtering pipeline"
+        description="Evaluation code for chemprop"
     )
     parser.add_argument(
         "--sampled_filepath", type=str, help="path to csv file to run inference on"

@@ -131,7 +131,7 @@ class Y6Environment(BaseEnvironment):
             "--preds_path",
             "/dev/null",
             "--checkpoint_dir",
-            "train_chemprop/chemprop_weights_y6_AL_iter_1",
+            "train_chemprop/checkpoints/chemprop_weights_y6_AL_iter_1",
         ]
         self.args = chemprop.args.PredictArgs().parse_args(arguments)
         self.model_objects = chemprop.train.load_model(args=self.args)
@@ -269,7 +269,7 @@ class PatentEnvironment(BaseEnvironment):
             "--preds_path",
             "/dev/null",
             "--checkpoint_dir",
-            "train_chemprop/chemprop_weights_patent_AL_iter_2_ensemble",
+            "train_chemprop/checkpoints/chemprop_weights_patent_AL_iter_2",
         ]
         self.args = chemprop.args.PredictArgs().parse_args(arguments)
         self.model_objects = chemprop.train.load_model(args=self.args)
