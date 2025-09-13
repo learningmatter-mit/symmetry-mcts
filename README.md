@@ -34,11 +34,12 @@ If you would like to run multiple iterations of training to generate diverse can
 ## Citation
 If you use code from this repository, please cite:
 ```
-@article{subramanian2024symmetry,
-  title={Symmetry-Constrained Generation of Diverse Low-Bandgap Molecules with Monte Carlo Tree Search},
+@article{subramanian2025symmetry,
+  title={Symmetry-constrained generation of diverse low-bandgap molecules with Monte Carlo tree search},
   author={Subramanian, Akshay and Damewood, James and Nam, Juno and Greenman, Kevin P and Singhal, Avni P and G{\'o}mez-Bombarelli, Rafael},
-  journal={arXiv preprint arXiv:2410.08833},
-  year={2024}
+  journal={Chemical Science},
+  year={2025},
+  publisher={Royal Society of Chemistry}
 }
 ```
 If you use the patent-mined datasets, please additionally cite:
